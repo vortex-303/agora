@@ -1,0 +1,12 @@
+{
+  "name": "agora",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0"
+  }
+}
