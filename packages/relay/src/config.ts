@@ -4,4 +4,15 @@ export const config = {
   maxObjects: parseInt(process.env.MAX_OBJECTS || '10000', 10),
   maxObjectsPerAuthor: parseInt(process.env.MAX_OBJECTS_PER_AUTHOR || '1000', 10),
   objectTTL: parseInt(process.env.OBJECT_TTL || String(7 * 24 * 60 * 60 * 1000), 10), // 7 days
+
+  // Relay-to-relay sync: comma-separated list of peer relay WebSocket URLs
+  peerRelays: (process.env.PEER_RELAYS || '').split(',').filter(Boolean),
+
+  // Rate limiting
+  rateLimit: {
+    windowMs: 60_000, // 1 minute window
+    maxPublish: parseInt(process.env.RATE_LIMIT_PUBLISH || '30', 10), // max publishes per window
+    maxSubscribe: parseInt(process.env.RATE_LIMIT_SUBSCRIBE || '20', 10),
+    maxConnections: parseInt(process.env.RATE_LIMIT_CONNECTIONS || '50', 10), // per IP
+  },
 };

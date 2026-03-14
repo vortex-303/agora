@@ -111,6 +111,10 @@
 					<span class="nav-icon">⬡</span>
 					<span class="nav-label">Network</span>
 				</a>
+				<a href="/search" class="nav-item" class:active={path === '/search'}>
+					<span class="nav-icon">⌕</span>
+					<span class="nav-label">Search</span>
+				</a>
 				<a href="/dm" class="nav-item" class:active={path.startsWith('/dm')}>
 					<span class="nav-icon">◈</span>
 					<span class="nav-label">DMs</span>

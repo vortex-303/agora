@@ -40,11 +40,21 @@ export class ProfileManager {
   private async publishProfile(): Promise<void> {
     const x25519 = deriveX25519FromMnemonic(this.identity.mnemonic);
     const state = this.feedManager.getAuthorState(this.identity.publicKeyBase64);
+
+    // Check for pending username from setup flow
+    const pendingName = typeof localStorage !== 'undefined' ? localStorage.getItem('agora_pending_username') : null;
+    if (pendingName) localStorage.removeItem('agora_pending_username');
+
+    const content: ProfileContent = {
+      x25519PublicKey: toBase64(x25519.publicKey),
+    };
+    if (pendingName) content.name = pendingName;
+
     const obj = createObject({
       author: this.identity.publicKeyBase64,
       privateKey: this.identity.privateKey,
       type: 'profile',
-      content: { x25519PublicKey: toBase64(x25519.publicKey) } as ProfileContent,
+      content,
       seq: state.seq + 1,
       prev: state.lastId,
     });

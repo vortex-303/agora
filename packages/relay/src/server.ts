@@ -5,6 +5,8 @@ import type { SignedObject, WireMessage, SubscriptionFilter } from '@agora/core'
 import { createChallenge, verifyAuth, type PendingAuth } from './auth.js';
 import { ObjectStore } from './store.js';
 import { SubscriptionManager } from './subscription.js';
+import { RelaySync } from './sync.js';
+import { RateLimiter } from './ratelimit.js';
 import geoip from 'geoip-lite';
 
 interface GeoInfo {
@@ -18,11 +20,13 @@ interface GeoInfo {
 interface ClientState {
   id: string;
   ws: WebSocket;
+  ip: string;
   publicKey?: string;
   x25519PublicKey?: string;
   authenticated: boolean;
   pendingAuth?: PendingAuth;
   geo?: GeoInfo;
+  isSyncPeer?: boolean; // relay-to-relay sync connection
 }
 
 let clientCounter = 0;
@@ -32,10 +36,23 @@ export class RelayServer {
   private clients: Map<string, ClientState> = new Map();
   private store: ObjectStore;
   private subscriptions: SubscriptionManager;
+  private sync: RelaySync;
+  private rateLimiter: RateLimiter;
+  private syncSubscribers: Set<string> = new Set(); // client IDs that want sync
 
   constructor(server: import('node:http').Server) {
     this.store = new ObjectStore();
     this.subscriptions = new SubscriptionManager();
+    this.rateLimiter = new RateLimiter();
+
+    // Relay-to-relay sync
+    this.sync = new RelaySync(this.store, (obj) => {
+      this.subscriptions.broadcast(obj, this.store);
+    });
+    this.sync.start();
+
+    // Cleanup rate limiter periodically
+    setInterval(() => this.rateLimiter.cleanup(), 60_000);
 
     this.wss = new WSServer({ server });
     this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
@@ -44,12 +61,18 @@ export class RelayServer {
   }
 
   private handleConnection(ws: WebSocket, req: IncomingMessage): void {
-    const clientId = `c${++clientCounter}`;
-    const client: ClientState = { id: clientId, ws, authenticated: false };
-    this.clients.set(clientId, client);
-
     const forwarded = req.headers['x-forwarded-for'];
     const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress || '';
+
+    // Rate limit connections per IP
+    if (!this.rateLimiter.addConnection(ip)) {
+      ws.close(4029, 'Too many connections');
+      return;
+    }
+
+    const clientId = `c${++clientCounter}`;
+    const client: ClientState = { id: clientId, ws, ip, authenticated: false };
+    this.clients.set(clientId, client);
     console.log(`[Relay] Client ${clientId} connected from ${ip}`);
 
     // Resolve geolocation
@@ -76,6 +99,8 @@ export class RelayServer {
 
     ws.on('close', () => {
       this.subscriptions.removeAll(clientId);
+      this.syncSubscribers.delete(clientId);
+      this.rateLimiter.removeConnection(ip);
       this.clients.delete(clientId);
       console.log(`[Relay] Client ${clientId} disconnected`);
     });
@@ -104,6 +129,12 @@ export class RelayServer {
         break;
       case 'peers':
         this.handlePeers(client);
+        break;
+      case 'relay_sync':
+        this.handleRelaySync(client, msg);
+        break;
+      case 'relay_sync_object':
+        this.handleRelaySyncObject(client, msg);
         break;
       default:
         this.send(client.ws, { action: 'error', message: `Unknown action: ${msg.action}` });
@@ -145,6 +176,10 @@ export class RelayServer {
       this.send(client.ws, { action: 'error', message: 'Not authenticated' });
       return;
     }
+    if (!this.rateLimiter.check(client.publicKey || client.ip, 'publish')) {
+      this.send(client.ws, { action: 'error', message: 'Rate limited: too many publishes' });
+      return;
+    }
 
     const obj = msg.object;
     if (!obj || !obj.body || !obj.id || !obj.sig) {
@@ -166,6 +201,12 @@ export class RelayServer {
     const isNew = this.store.put(obj);
     if (isNew) {
       this.subscriptions.broadcast(obj, this.store);
+      this.sync.broadcastToPeers(obj); // relay-to-relay sync
+      // Forward to sync subscribers
+      for (const subId of this.syncSubscribers) {
+        const c = this.clients.get(subId);
+        if (c) this.send(c.ws, { action: 'relay_sync_object', object: obj });
+      }
     }
   }
 
@@ -240,6 +281,42 @@ export class RelayServer {
     }
 
     this.send(client.ws, { action: 'peers', peers });
+  }
+
+  // Relay-to-relay sync: peer relay subscribes to all new objects
+  private handleRelaySync(client: ClientState, msg: { mode: string }): void {
+    if (msg.mode === 'subscribe') {
+      client.isSyncPeer = true;
+      this.syncSubscribers.add(client.id);
+      console.log(`[Sync] Peer ${client.id} subscribed for sync`);
+      // Send all stored objects
+      const all = this.store.match([{}]);
+      for (const obj of all) {
+        this.send(client.ws, { action: 'relay_sync_object', object: obj });
+      }
+    }
+  }
+
+  // Incoming object from a peer relay
+  private handleRelaySyncObject(client: ClientState, msg: { object: SignedObject }): void {
+    if (!client.isSyncPeer) return;
+    const obj = msg.object;
+    if (!obj?.body || !obj.id || !obj.sig) return;
+    if (this.store.has(obj.id)) return;
+
+    const result = validateObject(obj);
+    if (!result.valid) return;
+
+    const isNew = this.store.put(obj);
+    if (isNew) {
+      this.subscriptions.broadcast(obj, this.store);
+      // Forward to other sync peers
+      for (const subId of this.syncSubscribers) {
+        if (subId === client.id) continue;
+        const c = this.clients.get(subId);
+        if (c) this.send(c.ws, { action: 'relay_sync_object', object: obj });
+      }
+    }
   }
 
   private send(ws: WebSocket, msg: object): void {

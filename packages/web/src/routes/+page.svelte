@@ -3,6 +3,7 @@
 	import { createObject, type PostContent, type SignedObject } from '@agora/core';
 	import { identityState, feedState, addToFeed, setFeed, appState } from '$lib/stores.svelte.js';
 	import { TOPICS } from '$lib/topics.js';
+	import LinkText from '$lib/LinkText.svelte';
 
 	let composeText = $state('');
 	let activeTopic = $state('general');
@@ -147,7 +148,7 @@
 					<span class="time">{formatTime(obj.body.timestamp)}</span>
 				</div>
 				{#if content.text}
-					<div class="post-text">{content.text}</div>
+					<div class="post-text"><LinkText text={content.text} /></div>
 				{/if}
 				{#if content.image}
 					<div class="post-image">
