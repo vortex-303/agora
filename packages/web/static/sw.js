@@ -1,33 +1,31 @@
-const CACHE_NAME = 'agora-v1';
-const SHELL_URLS = ['/'];
+const CACHE_NAME = 'agora-v2';
 
-// Install: cache the app shell
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS))
-  );
+// Install: immediately take over
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: clean old caches, claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: network-first for API/WebSocket, cache-first for static assets
+// Fetch: only cache immutable hashed assets, everything else goes to network
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // Skip non-GET, WebSocket, and relay requests
-  if (event.request.method !== 'GET') return;
+  // Never intercept WebSocket upgrade or relay requests
   if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
+  if (url.hostname.includes('relay')) return;
 
-  // Static assets (immutable hashed files): cache-first
+  // Immutable hashed assets (SvelteKit fingerprinted files): cache-first
   if (url.pathname.includes('/_app/immutable/')) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
@@ -44,17 +42,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML navigation: network-first with cache fallback
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match('/') || caches.match(event.request))
-    );
-    return;
-  }
+  // Everything else: network only (no caching HTML — always get fresh)
+  // This avoids stale app shell issues
 });

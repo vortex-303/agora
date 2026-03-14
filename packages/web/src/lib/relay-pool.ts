@@ -5,7 +5,6 @@ import type { SignedObject, SubscriptionFilter, Identity } from '@agora/core';
 export type PoolStatus = 'disconnected' | 'partial' | 'connected';
 
 export const DEFAULT_RELAYS = [
-  'wss://relay.agorap2p.com',
   'wss://agora-relay.fly.dev',
   'wss://agora-relay-eu.fly.dev',
 ];

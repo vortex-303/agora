@@ -89,7 +89,9 @@ export class RelayClient {
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = () => {};
+    this.ws.onerror = (e) => {
+      console.warn(`[Relay] Connection error to ${this.url}`);
+    };
   }
 
   disconnect(): void {
