@@ -1,191 +1,253 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createObject, type SignedObject, type PostContent } from '@agora/core';
-	import { identityState, feedState, addToFeed, connectionState } from '$lib/stores.svelte.js';
-	import type { RelayClient } from '$lib/relay.js';
+	import { createObject, type PostContent, type SignedObject } from '@agora/core';
+	import { identityState, feedState, addToFeed, setFeed, appState } from '$lib/stores.svelte.js';
+	import { TOPICS } from '$lib/topics.js';
 
 	let composeText = $state('');
-	let composeTopic = $state('general');
-	let seq = $state(1);
-	let lastId: string | undefined = $state(undefined);
-	let relay: RelayClient | null = $state(null);
+	let activeTopic = $state('general');
+	let loaded = $state(false);
+	let composeImage = $state<string | null>(null);
+	let fileInput: HTMLInputElement;
 
 	onMount(() => {
-		const check = setInterval(() => {
-			const r = (window as any).__agora_relay as RelayClient | undefined;
-			if (r) {
-				relay = r;
+		const check = setInterval(async () => {
+			const fm = appState.feedManager;
+			if (fm) {
 				clearInterval(check);
-				r.setHandlers({
-					onEvent: (_subId, obj) => addToFeed(obj),
-					onEose: () => {},
-					onStatus: (status) => { connectionState.status = status; },
-				});
-				r.subscribe('feed', [{ types: ['post'] }]);
+				const cached = await fm.loadCachedFeed();
+				if (cached.length > 0) setFeed(cached);
+				fm.onObject((obj) => { if (obj.body.type === 'post') addToFeed(obj); });
+				await fm.subscribe('feed', [{ types: ['post'] }]);
+				loaded = true;
 			}
-		}, 100);
+		}, 50);
 		return () => clearInterval(check);
 	});
 
 	function post() {
 		const identity = identityState.identity;
-		if (!identity || !composeText.trim()) return;
-
+		const fm = appState.feedManager;
+		if (!identity || !fm || (!composeText.trim() && !composeImage)) return;
+		const state = fm.getAuthorState(identity.publicKeyBase64);
+		const content: PostContent = {
+			text: composeText.trim(),
+			topic: activeTopic,
+		};
+		if (composeImage) content.image = composeImage;
 		const obj = createObject({
 			author: identity.publicKeyBase64,
 			privateKey: identity.privateKey,
 			type: 'post',
-			content: { text: composeText.trim(), topic: composeTopic || undefined } as PostContent,
-			seq: seq,
-			prev: lastId,
+			content,
+			seq: state.seq + 1,
+			prev: state.lastId,
 		});
-
 		addToFeed(obj);
-		relay?.publish(obj);
-
-		lastId = obj.id;
-		seq++;
+		fm.publish(obj);
 		composeText = '';
+		composeImage = null;
+	}
+
+	function handleFile(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0];
+		if (!file || !file.type.startsWith('image/')) return;
+		if (file.size > 500_000) { alert('Image must be under 500KB'); return; }
+		const reader = new FileReader();
+		reader.onload = () => { composeImage = reader.result as string; };
+		reader.readAsDataURL(file);
+	}
+
+	function handlePaste(e: ClipboardEvent) {
+		const items = e.clipboardData?.items;
+		if (!items) return;
+		for (const item of items) {
+			if (item.type.startsWith('image/')) {
+				e.preventDefault();
+				const file = item.getAsFile();
+				if (!file) return;
+				if (file.size > 500_000) { alert('Image must be under 500KB'); return; }
+				const reader = new FileReader();
+				reader.onload = () => { composeImage = reader.result as string; };
+				reader.readAsDataURL(file);
+				return;
+			}
+		}
+	}
+
+	function displayName(key: string): string {
+		return appState.profileManager?.displayName(key) || key.slice(0, 8) + '...';
 	}
 
 	function formatTime(ts: number): string {
 		const diff = Date.now() - ts;
-		if (diff < 60_000) return 'just now';
-		if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
-		if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
+		if (diff < 60_000) return 'now';
+		if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m`;
+		if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h`;
 		return new Date(ts).toLocaleDateString();
+	}
+
+	let topicPosts = $derived(
+		feedState.objects.filter((o) => {
+			if (o.body.type !== 'post') return false;
+			const c = o.body.content as PostContent;
+			return c.topic === activeTopic && !c.reply;
+		})
+	);
+
+	function replyCount(postId: string): number {
+		return feedState.objects.filter((o) =>
+			o.body.type === 'post' && (o.body.content as PostContent).reply === postId
+		).length;
 	}
 </script>
 
 {#if identityState.identity}
-	<div class="compose">
-		<textarea
-			bind:value={composeText}
-			placeholder="What's on your mind?"
-			rows="3"
+	<div class="topic-tabs">
+		{#each TOPICS as topic (topic.id)}
+			<button class="topic-tab" class:active={activeTopic === topic.id}
+				onclick={() => { activeTopic = topic.id; }}>
+				#{topic.label}
+			</button>
+		{/each}
+	</div>
+
+	<div class="compose card">
+		<textarea class="input" bind:value={composeText}
+			placeholder="Post to #{activeTopic}..." rows="2"
 			onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) post(); }}
+			onpaste={handlePaste}
 		></textarea>
+		{#if composeImage}
+			<div class="compose-preview">
+				<img src={composeImage} alt="preview" />
+				<button class="remove-img" onclick={() => { composeImage = null; }}>✕</button>
+			</div>
+		{/if}
 		<div class="compose-bar">
-			<label>
-				Topic: <input bind:value={composeTopic} placeholder="general" class="topic-input" />
-			</label>
-			<button onclick={post} disabled={!composeText.trim()}>Post</button>
+			<div class="compose-left">
+				<span class="compose-topic">#{activeTopic}</span>
+				<button class="img-btn" onclick={() => fileInput.click()} title="Add image">🖼</button>
+				<input bind:this={fileInput} type="file" accept="image/*" onchange={handleFile} hidden />
+			</div>
+			<button class="btn" onclick={post} disabled={!composeText.trim() && !composeImage}>Post</button>
 		</div>
 	</div>
 
 	<div class="feed">
-		{#each feedState.objects as obj (obj.id)}
+		{#each topicPosts as obj (obj.id)}
 			{@const content = obj.body.content as PostContent}
-			<article class="post">
+			{@const replies = replyCount(obj.id)}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="post card" onclick={() => window.location.href = `/post/${encodeURIComponent(obj.id)}`}>
 				<div class="post-header">
-					<span class="author">{obj.body.author.slice(0, 8)}...</span>
-					{#if content.topic}
-						<a href="/topic/{content.topic}" class="topic">#{content.topic}</a>
-					{/if}
+					<a href="/u/{encodeURIComponent(obj.body.author)}" class="author mono"
+						onclick={(e) => e.stopPropagation()}>{displayName(obj.body.author)}</a>
 					<span class="time">{formatTime(obj.body.timestamp)}</span>
 				</div>
-				<div class="post-text">{content.text}</div>
-			</article>
+				{#if content.text}
+					<div class="post-text">{content.text}</div>
+				{/if}
+				{#if content.image}
+					<div class="post-image">
+						<img src={content.image} alt="" />
+					</div>
+				{/if}
+				{#if replies > 0}
+					<div class="post-footer">
+						<span class="reply-count">{replies} {replies === 1 ? 'reply' : 'replies'}</span>
+					</div>
+				{/if}
+			</div>
 		{/each}
-		{#if feedState.objects.length === 0}
-			<p class="empty">No posts yet. Be the first!</p>
+		{#if topicPosts.length === 0 && loaded}
+			<div class="empty">
+				<p>No posts in #{activeTopic} yet.</p>
+				<p class="sub">Be the first to post.</p>
+			</div>
 		{/if}
 	</div>
 {:else}
-	<p>Loading...</p>
+	<div class="loading">Initializing...</div>
 {/if}
 
 <style>
-	.compose {
-		margin-bottom: 24px;
+	.topic-tabs {
+		display: flex; gap: 4px; margin-bottom: 16px;
+		overflow-x: auto; padding-bottom: 4px;
+		-webkit-overflow-scrolling: touch;
 	}
-	textarea {
-		width: 100%;
-		background: #1a1a1a;
-		border: 1px solid #333;
-		border-radius: 8px;
-		color: #e0e0e0;
-		padding: 12px;
-		font-size: 1em;
-		resize: vertical;
-		box-sizing: border-box;
-		font-family: inherit;
+	.topic-tabs::-webkit-scrollbar { display: none; }
+	.topic-tab {
+		background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04);
+		border-radius: 20px; padding: 6px 14px; color: var(--text-secondary);
+		font-size: 0.8rem; font-weight: 500; cursor: pointer;
+		white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
 	}
-	textarea:focus {
-		outline: none;
-		border-color: #6eb5ff;
+	.topic-tab:hover { border-color: var(--accent-border); color: var(--text-primary); }
+	.topic-tab.active {
+		background: rgba(249,115,22,0.1); border-color: var(--accent);
+		color: var(--accent); font-weight: 600;
+	}
+	.compose { margin-bottom: 20px; }
+	.compose textarea {
+		resize: vertical; min-height: 60px;
+		background: var(--bg-input); border-color: rgba(255,255,255,0.04);
+	}
+	.compose-preview {
+		position: relative; margin-top: 8px; display: inline-block;
+	}
+	.compose-preview img {
+		max-height: 120px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);
+	}
+	.remove-img {
+		position: absolute; top: 4px; right: 4px;
+		background: rgba(0,0,0,0.7); color: #fff; border: none;
+		width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+		font-size: 0.7rem; display: flex; align-items: center; justify-content: center;
 	}
 	.compose-bar {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-top: 8px;
+		display: flex; justify-content: space-between; align-items: center; margin-top: 8px;
 	}
-	.topic-input {
-		background: #1a1a1a;
-		border: 1px solid #333;
-		border-radius: 4px;
-		color: #e0e0e0;
-		padding: 4px 8px;
-		font-size: 0.85em;
-		width: 120px;
+	.compose-left { display: flex; align-items: center; gap: 8px; }
+	.compose-topic { color: var(--text-tertiary); font-size: 0.8rem; }
+	.img-btn {
+		background: none; border: none; cursor: pointer; font-size: 1rem;
+		padding: 2px 4px; opacity: 0.5; transition: opacity 0.2s;
 	}
-	button {
-		background: #6eb5ff;
-		color: #000;
-		border: none;
-		border-radius: 6px;
-		padding: 8px 20px;
-		font-size: 0.9em;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	button:disabled {
-		opacity: 0.4;
-		cursor: default;
-	}
-	button:hover:not(:disabled) {
-		background: #8ec8ff;
-	}
-	.feed {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
+	.img-btn:hover { opacity: 1; }
+	.feed { display: flex; flex-direction: column; gap: 8px; }
 	.post {
-		padding: 12px 0;
-		border-bottom: 1px solid #1a1a1a;
+		display: block; padding: 14px 16px; text-decoration: none; color: inherit;
+		transition: all 0.2s; cursor: pointer;
 	}
+	.post:hover { border-color: var(--accent-border); }
 	.post-header {
-		display: flex;
-		gap: 8px;
-		align-items: center;
-		font-size: 0.85em;
-		margin-bottom: 6px;
+		display: flex; gap: 10px; align-items: center;
+		font-size: 0.8rem; margin-bottom: 8px;
 	}
-	.author {
-		font-family: monospace;
-		color: #6eb5ff;
+	.author { color: var(--accent); font-size: 0.8rem; font-weight: 500; }
+	.time { color: var(--text-tertiary); margin-left: auto; font-size: 0.75rem; }
+	.post-text { white-space: pre-wrap; line-height: 1.5; font-size: 0.9rem; }
+	.post-image { margin-top: 10px; }
+	.post-image img {
+		max-width: 100%; max-height: 400px; border-radius: 8px;
+		border: 1px solid rgba(255,255,255,0.06);
 	}
-	.topic {
-		color: #888;
-		font-size: 0.9em;
+	.post-footer { margin-top: 10px; }
+	.reply-count {
+		color: var(--text-secondary); font-size: 0.75rem;
+		padding: 2px 8px; background: var(--bg-input); border-radius: 10px;
 	}
-	.time {
-		color: #555;
-		margin-left: auto;
-	}
-	.post-text {
-		white-space: pre-wrap;
-		line-height: 1.5;
-	}
-	.empty {
-		text-align: center;
-		color: #555;
-		margin-top: 48px;
-	}
-	label {
-		color: #888;
-		font-size: 0.85em;
+	.empty { text-align: center; margin-top: 64px; color: var(--text-tertiary); }
+	.empty p { margin: 4px 0; }
+	.empty .sub { font-size: 0.85rem; }
+	.loading { text-align: center; margin-top: 64px; color: var(--text-tertiary); }
+
+	/* Mobile responsive */
+	@media (max-width: 640px) {
+		.topic-tabs { gap: 3px; }
+		.topic-tab { padding: 5px 10px; font-size: 0.75rem; }
 	}
 </style>

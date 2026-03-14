@@ -1,4 +1,4 @@
-import { sign, toBase64, fromBase64 } from '@agora/core';
+import { sign, toBase64, fromBase64, deriveX25519FromMnemonic } from '@agora/core';
 import type { SignedObject, SubscriptionFilter, Identity } from '@agora/core';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'authenticating' | 'connected';
@@ -6,6 +6,18 @@ export type ConnectionStatus = 'disconnected' | 'connecting' | 'authenticating' 
 export type EventHandler = (subscriptionId: string, object: SignedObject) => void;
 export type EoseHandler = (subscriptionId: string) => void;
 export type StatusHandler = (status: ConnectionStatus) => void;
+export type SignalHandler = (source: string, signalType: string, data: any) => void;
+export interface PeerGeo {
+  city?: string;
+  country?: string;
+  countryCode?: string;
+}
+export interface PeerEntry {
+  publicKey: string;
+  geo?: PeerGeo;
+  x25519PublicKey?: string;
+}
+export type PeersHandler = (peers: PeerEntry[]) => void;
 
 export class RelayClient {
   private ws: WebSocket | null = null;
@@ -16,9 +28,11 @@ export class RelayClient {
   private maxReconnectDelay = 30000;
   private pendingNonce: string | null = null;
 
-  private onEvent: EventHandler = () => {};
-  private onEose: EoseHandler = () => {};
-  private onStatus: StatusHandler = () => {};
+  private eventHandlers: EventHandler[] = [];
+  private eoseHandlers: EoseHandler[] = [];
+  private statusHandlers: StatusHandler[] = [];
+  private signalHandlers: SignalHandler[] = [];
+  private peersHandlers: PeersHandler[] = [];
   private pendingSubscriptions: Array<{ id: string; filters: SubscriptionFilter[] }> = [];
 
   constructor(url: string, identity: Identity) {
@@ -26,22 +40,39 @@ export class RelayClient {
     this.identity = identity;
   }
 
-  setHandlers(handlers: { onEvent?: EventHandler; onEose?: EoseHandler; onStatus?: StatusHandler }): void {
-    if (handlers.onEvent) this.onEvent = handlers.onEvent;
-    if (handlers.onEose) this.onEose = handlers.onEose;
-    if (handlers.onStatus) this.onStatus = handlers.onStatus;
+  onEvent(handler: EventHandler): void { this.eventHandlers.push(handler); }
+  onEose(handler: EoseHandler): void { this.eoseHandlers.push(handler); }
+  onStatusChange(handler: StatusHandler): void { this.statusHandlers.push(handler); }
+  onSignal(handler: SignalHandler): void { this.signalHandlers.push(handler); }
+  onPeers(handler: PeersHandler): void { this.peersHandlers.push(handler); }
+
+  private emitEvent(subId: string, obj: SignedObject): void {
+    for (const h of this.eventHandlers) h(subId, obj);
+  }
+  private emitEose(subId: string): void {
+    for (const h of this.eoseHandlers) h(subId);
+  }
+  private emitStatus(status: ConnectionStatus): void {
+    for (const h of this.statusHandlers) h(status);
+  }
+  private emitSignal(source: string, signalType: string, data: any): void {
+    for (const h of this.signalHandlers) h(source, signalType, data);
+  }
+  private emitPeers(peers: PeerEntry[]): void {
+    for (const h of this.peersHandlers) h(peers);
   }
 
   connect(): void {
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) return;
 
-    this.onStatus('connecting');
+    this.emitStatus('connecting');
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
       this.reconnectDelay = 1000;
-      this.send({ action: 'hello', publicKey: this.identity.publicKeyBase64 });
-      this.onStatus('authenticating');
+      const x25519 = deriveX25519FromMnemonic(this.identity.mnemonic);
+      this.send({ action: 'hello', publicKey: this.identity.publicKeyBase64, x25519PublicKey: toBase64(x25519.publicKey) });
+      this.emitStatus('authenticating');
     };
 
     this.ws.onmessage = (event) => {
@@ -54,13 +85,11 @@ export class RelayClient {
     };
 
     this.ws.onclose = () => {
-      this.onStatus('disconnected');
+      this.emitStatus('disconnected');
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = () => {
-      // onclose will fire after this
-    };
+    this.ws.onerror = () => {};
   }
 
   disconnect(): void {
@@ -73,7 +102,7 @@ export class RelayClient {
       this.ws.close();
       this.ws = null;
     }
-    this.onStatus('disconnected');
+    this.emitStatus('disconnected');
   }
 
   private scheduleReconnect(): void {
@@ -88,15 +117,18 @@ export class RelayClient {
   private handleMessage(msg: any): void {
     switch (msg.action) {
       case 'challenge': {
-        this.pendingNonce = msg.nonce;
-        const nonceBytes = fromBase64(msg.nonce);
-        const sig = sign(nonceBytes, this.identity.privateKey);
-        this.send({ action: 'auth', signature: toBase64(sig), nonce: msg.nonce });
+        try {
+          this.pendingNonce = msg.nonce;
+          const nonceBytes = fromBase64(msg.nonce);
+          const sig = sign(nonceBytes, this.identity.privateKey);
+          this.send({ action: 'auth', signature: toBase64(sig), nonce: msg.nonce });
+        } catch (e) {
+          console.error('[Relay] Auth signing failed:', e);
+        }
         break;
       }
       case 'auth_ok':
-        this.onStatus('connected');
-        // Re-subscribe
+        this.emitStatus('connected');
         for (const sub of this.pendingSubscriptions) {
           this.send({ action: 'subscribe', ...sub });
         }
@@ -106,10 +138,16 @@ export class RelayClient {
         this.disconnect();
         break;
       case 'event':
-        this.onEvent(msg.subscriptionId, msg.object);
+        this.emitEvent(msg.subscriptionId, msg.object);
         break;
       case 'eose':
-        this.onEose(msg.subscriptionId);
+        this.emitEose(msg.subscriptionId);
+        break;
+      case 'signal':
+        this.emitSignal(msg.source, msg.signalType, msg.data);
+        break;
+      case 'peers':
+        this.emitPeers(msg.peers);
         break;
       case 'error':
         console.error('[Relay] Error:', msg.message);
@@ -118,11 +156,9 @@ export class RelayClient {
   }
 
   subscribe(id: string, filters: SubscriptionFilter[]): void {
-    // Track for reconnect
     const existing = this.pendingSubscriptions.findIndex((s) => s.id === id);
     if (existing !== -1) this.pendingSubscriptions[existing] = { id, filters };
     else this.pendingSubscriptions.push({ id, filters });
-
     this.send({ action: 'subscribe', id, filters });
   }
 
@@ -130,7 +166,15 @@ export class RelayClient {
     this.send({ action: 'publish', object });
   }
 
-  private send(msg: object): void {
+  sendSignal(target: string, signalType: string, data: any): void {
+    this.send({ action: 'signal', target, signalType, data });
+  }
+
+  requestPeers(): void {
+    this.send({ action: 'peers' });
+  }
+
+  send(msg: object): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     }

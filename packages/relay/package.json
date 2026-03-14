@@ -10,12 +10,14 @@
   },
   "dependencies": {
     "@agora/core": "workspace:*",
+    "geoip-lite": "^2.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/geoip-lite": "^1.4.4",
     "@types/node": "^25.5.0",
     "@types/ws": "^8.18.0",
-    "typescript": "^5.7.0",
-    "ts-node": "^10.9.0"
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0"
   }
 }

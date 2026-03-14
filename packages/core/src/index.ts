@@ -57,5 +57,8 @@ export { createObject, validateObject } from './objects.js';
 // Storage
 export type { StorageAdapter } from './storage.js';
 
+// Encryption (Phase 4: DMs)
+export { deriveX25519FromMnemonic, encryptDM, decryptDM } from './encryption.js';
+
 // BIP-39
 export { BIP39_WORDLIST } from './bip39-wordlist.js';

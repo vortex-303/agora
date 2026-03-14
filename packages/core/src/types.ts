@@ -14,6 +14,7 @@ export interface PostContent {
   text: string;
   topic?: string;
   reply?: string; // id of object being replied to
+  image?: string; // data URL (base64) or external URL
 }
 
 export interface FollowContent {
