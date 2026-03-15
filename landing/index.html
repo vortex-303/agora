@@ -166,8 +166,8 @@ footer a:hover { color: var(--accent); }
     <div class="nav-links">
       <a href="#algorithm">The Algorithm</a>
       <a href="#communities">Communities</a>
-      <a href="#sovereignty">Sovereignty</a>
       <a href="#truth">The Truth</a>
+      <a href="#p2p">P2P</a>
     </div>
     <a href="https://app.agorap2p.com" class="btn-primary">Open Agora</a>
   </div>
@@ -406,8 +406,39 @@ footer a:hover { color: var(--accent); }
   </div>
 </section>
 
+<!-- P2P Heritage -->
+<section class="section-dark" id="p2p">
+  <div class="container">
+    <div class="section-eyebrow reveal">P2P Heritage</div>
+    <h2 class="section-title reveal">Built on 25 years of P2P engineering.<br><span class="accent">No casino attached.</span></h2>
+    <p class="section-sub reveal">BitTorrent solved a problem in 2001 that most "web3" projects still can't: distributing data across millions of untrusted nodes without a central server. The core ideas — content addressing, gossip propagation, swarm resilience — are some of the most battle-tested engineering on the internet. Agora is built on those ideas. What we didn't take: the speculation.</p>
+    <div class="card-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">🧬</div>
+        <h3>Content Addressing</h3>
+        <p>Every post is identified by its SHA-256 hash — the same principle behind torrent piece verification. Same content = same ID, anywhere in the network. No database. No central authority assigning identifiers. The data is the address.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔄</div>
+        <h3>Gossip Protocol</h3>
+        <p>When a node receives a new object, it forwards to all peers. Objects ripple through the mesh like files through a torrent swarm. No coordinator. No bottleneck. Just propagation — the same protocol that made file sharing unkillable.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🛡️</div>
+        <h3>Swarm Resilience</h3>
+        <p>Kill a relay. Kill ten relays. The network keeps working because every browser has a copy and can talk directly to other browsers. This is the same architecture that made torrents survive two decades of legal attacks. It works because there's nothing to shut down.</p>
+      </div>
+    </div>
+    <div class="no-casino reveal" style="margin-top:40px; text-align:center; max-width:640px; margin-left:auto; margin-right:auto;">
+      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">The crypto industry took this same P2P technology and strapped a financial instrument to it. Tokens, mining, staking, airdrops — layers of speculation on top of engineering that already worked.</p>
+      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">We took the engineering and left the casino.</p>
+      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8;">No tokens. No mining. No "invest in the future of social media." The value of this network is the conversation happening on it — not a number on an exchange.</p>
+    </div>
+  </div>
+</section>
+
 <!-- Open Source -->
-<section class="section-dark" id="source">
+<section id="source">
   <div class="container" style="text-align:center; max-width:640px;">
     <div class="section-eyebrow reveal">Open Source</div>
     <h2 class="section-title reveal">If you can't read the code,<br>you can't trust the promise.</h2>
