@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { createObject, type PostContent, type SignedObject } from '@agora/core';
 	import { identityState, feedState, addToFeed, appState } from '$lib/stores.svelte.js';
-	import LinkText from '$lib/LinkText.svelte';
+	import Markdown from '$lib/Markdown.svelte';
 
 	let postId = $derived($page.params.id);
 	let replyText = $state('');
@@ -68,7 +68,7 @@
 			<a href="/u/{encodeURIComponent(parentPost.body.author)}" class="author mono">{displayName(parentPost.body.author)}</a>
 			<span class="time">{formatTime(parentPost.body.timestamp)}</span>
 		</div>
-		<div class="post-text"><LinkText text={parentContent.text} /></div>
+		<div class="post-text"><Markdown text={parentContent.text} /></div>
 		{#if parentContent.image}
 			<div class="post-image"><img src={parentContent.image} alt="" /></div>
 		{/if}
@@ -99,7 +99,7 @@
 						<a href="/u/{encodeURIComponent(r.body.author)}" class="author mono">{displayName(r.body.author)}</a>
 						<span class="time">{formatTime(r.body.timestamp)}</span>
 					</div>
-					<div class="reply-text"><LinkText text={rc.text} /></div>
+					<div class="reply-text"><Markdown text={rc.text} /></div>
 				</div>
 			{/each}
 		</div>

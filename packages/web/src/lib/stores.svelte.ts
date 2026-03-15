@@ -4,6 +4,8 @@ import type { FeedManager } from './feed.js';
 import type { ProfileManager } from './profiles.js';
 import type { DMManager } from './dm.js';
 import type { CommunityManager } from './communities.js';
+import type { VoteManager } from './votes.js';
+import type { ClientModeration } from './moderation-client.js';
 
 export const identityState = $state<{ identity: Identity | null }>({ identity: null });
 export const connectionState = $state<{ status: ConnectionStatus }>({ status: 'disconnected' });
@@ -14,11 +16,15 @@ export const appState = $state<{
   profileManager: ProfileManager | null;
   dmManager: DMManager | null;
   communityManager: CommunityManager | null;
+  voteManager: VoteManager | null;
+  moderation: ClientModeration | null;
 }>({
   feedManager: null,
   profileManager: null,
   dmManager: null,
   communityManager: null,
+  voteManager: null,
+  moderation: null,
 });
 
 export function addToFeed(obj: SignedObject): void {

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { createObject, type PostContent, type SignedObject } from '@agora/core';
 	import { identityState, feedState, addToFeed, appState } from '$lib/stores.svelte.js';
-	import LinkText from '$lib/LinkText.svelte';
+	import Markdown from '$lib/Markdown.svelte';
 
 	let name = $derived($page.params.name);
 	let composeText = $state('');
@@ -158,7 +158,7 @@
 						onclick={(e) => e.stopPropagation()}>{displayName(obj.body.author)}</a>
 					<span class="time">{formatTime(obj.body.timestamp)}</span>
 				</div>
-				<div class="post-text"><LinkText text={content.text} /></div>
+				<div class="post-text"><Markdown text={content.text} /></div>
 				{#if isMod}
 					<div class="mod-actions">
 						<button class="mod-btn" onclick={() => handleMod(obj.id, 'unpin')}>Unpin</button>
@@ -186,7 +186,7 @@
 					onclick={(e) => e.stopPropagation()}>{displayName(obj.body.author)}</a>
 				<span class="time">{formatTime(obj.body.timestamp)}</span>
 			</div>
-			<div class="post-text"><LinkText text={content.text} /></div>
+			<div class="post-text"><Markdown text={content.text} /></div>
 			{#if content.image}
 				<div class="post-image"><img src={content.image} alt="" /></div>
 			{/if}

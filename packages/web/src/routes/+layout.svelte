@@ -9,6 +9,8 @@
 	import { ProfileManager } from '$lib/profiles.js';
 	import { DMManager } from '$lib/dm.js';
 	import { CommunityManager } from '$lib/communities.js';
+	import { VoteManager } from '$lib/votes.js';
+	import { ClientModeration } from '$lib/moderation-client.js';
 	import GridCanvas from '$lib/GridCanvas.svelte';
 	import '$lib/theme.css';
 
@@ -68,6 +70,14 @@
 		const cm = new CommunityManager(fm, identity);
 		await cm.init();
 		appState.communityManager = cm;
+
+		const vm = new VoteManager(fm, identity);
+		await vm.init();
+		appState.voteManager = vm;
+
+		const mod = new ClientModeration(fm, identity);
+		await mod.init();
+		appState.moderation = mod;
 	});
 
 	function copyAddress() {
