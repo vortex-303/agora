@@ -2,6 +2,7 @@ import { WebSocketServer as WSServer, WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import { validateObject } from '@agora/core';
 import type { SignedObject, WireMessage, SubscriptionFilter } from '@agora/core';
+import { config } from './config.js';
 import { createChallenge, verifyAuth, type PendingAuth } from './auth.js';
 import { ObjectStore } from './store.js';
 import { SubscriptionManager } from './subscription.js';
@@ -325,15 +326,22 @@ export class RelayServer {
     }
   }
 
-  getStats(): { clients: number; authenticated: number; objects: number } {
+  getStats() {
     let authenticated = 0;
+    const countries = new Set<string>();
     for (const c of this.clients.values()) {
       if (c.authenticated) authenticated++;
+      if (c.geo?.countryCode) countries.add(c.geo.countryCode);
     }
     return {
       clients: this.clients.size,
       authenticated,
       objects: this.store.size,
+      countries: countries.size,
+      syncPeers: this.syncSubscribers.size,
+      peerRelays: config.peerRelays.length,
+      uptime: Math.floor(process.uptime()),
+      region: process.env.FLY_REGION || process.env.PRIMARY_REGION || 'local',
     };
   }
 }
