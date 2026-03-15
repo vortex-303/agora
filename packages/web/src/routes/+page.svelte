@@ -7,7 +7,7 @@
 
 	let composeText = $state('');
 	let composeCommunity = $state('general');
-	let feedMode = $state<'personal' | 'explore'>('explore');
+	let feedMode = $state<'main' | 'personal'>('main');
 	let loaded = $state(false);
 	let composeImage = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
@@ -102,29 +102,43 @@
 
 	let followedCommunities = $derived(appState.moderation?.getFollowedCommunities() || []);
 
-	// Personal feed: posts from followed communities
+	// Personal feed: posts from followed communities, sorted by time
 	let personalPosts = $derived(
-		feedState.objects.filter((o) => {
-			if (o.body.type !== 'post') return false;
-			const c = o.body.content as PostContent;
-			if (c.reply) return false;
-			if (!appState.moderation?.shouldShow(o)) return false;
-			return c.topic ? followedCommunities.includes(c.topic) : false;
-		})
+		feedState.objects
+			.filter((o) => {
+				if (o.body.type !== 'post') return false;
+				const c = o.body.content as PostContent;
+				if (c.reply) return false;
+				if (!appState.moderation?.shouldShow(o)) return false;
+				return c.topic ? followedCommunities.includes(c.topic) : false;
+			})
+			.sort((a, b) => b.body.timestamp - a.body.timestamp)
 	);
 
-	// Explore: all posts across all communities, no replies
-	let explorePosts = $derived(
-		feedState.objects.filter((o) => {
-			if (o.body.type !== 'post') return false;
-			const c = o.body.content as PostContent;
-			if (c.reply) return false;
-			if (!appState.moderation?.shouldShow(o)) return false;
-			return true;
-		})
+	// Main feed: ranked by engagement + recency algo
+	function rankScore(obj: typeof feedState.objects[0]): number {
+		const votes = appState.voteManager?.getVotes(obj.id) || { score: 0 };
+		const replies = replyCount(obj.id);
+		const ageHours = (Date.now() - obj.body.timestamp) / 3_600_000;
+		const voteSignal = Math.max(votes.score, 0) + 1; // floor at 1
+		const replyBoost = 1 + replies * 0.3;
+		const timePenalty = Math.pow((ageHours / 6) + 1, 1.5);
+		return (voteSignal * replyBoost) / timePenalty;
+	}
+
+	let mainFeedPosts = $derived(
+		feedState.objects
+			.filter((o) => {
+				if (o.body.type !== 'post') return false;
+				const c = o.body.content as PostContent;
+				if (c.reply) return false;
+				if (!appState.moderation?.shouldShow(o)) return false;
+				return true;
+			})
+			.sort((a, b) => rankScore(b) - rankScore(a))
 	);
 
-	let displayPosts = $derived(feedMode === 'personal' ? personalPosts : explorePosts);
+	let displayPosts = $derived(feedMode === 'personal' ? personalPosts : mainFeedPosts);
 
 	function replyCount(postId: string): number {
 		return feedState.objects.filter((o) =>
@@ -150,21 +164,21 @@
 
 {#if identityState.identity}
 	<div class="mode-tabs">
+		<button class="mode-tab" class:active={feedMode === 'main'} onclick={() => { feedMode = 'main'; }}>
+			Main Feed
+		</button>
 		<button class="mode-tab" class:active={feedMode === 'personal'} onclick={() => { feedMode = 'personal'; }}>
 			My Feed
 			{#if followedCommunities.length > 0}
 				<span class="follow-count">{followedCommunities.length}</span>
 			{/if}
 		</button>
-		<button class="mode-tab" class:active={feedMode === 'explore'} onclick={() => { feedMode = 'explore'; }}>
-			Explore
-		</button>
 	</div>
 
 	{#if feedMode === 'personal' && followedCommunities.length === 0}
 		<div class="empty-state card">
 			<p>Your feed is empty.</p>
-			<p class="sub">Browse <a href="/communities">Communities</a> and follow the ones you're interested in. Their posts will appear here.</p>
+			<p class="sub">Follow some <a href="/communities">communities</a> and their posts will appear here.</p>
 		</div>
 	{/if}
 
@@ -247,10 +261,15 @@
 				</div>
 			</div>
 		{/each}
-		{#if displayPosts.length === 0 && loaded && feedMode === 'explore'}
+		{#if displayPosts.length === 0 && loaded}
 			<div class="empty">
-				<p>The agora is quiet.</p>
-				<p class="sub">Post something to break the silence.</p>
+				{#if feedMode === 'main'}
+					<p>The agora is quiet.</p>
+					<p class="sub">Post something to break the silence.</p>
+				{:else}
+					<p>No posts from your communities yet.</p>
+					<p class="sub">Follow more <a href="/communities">communities</a> or switch to Main Feed.</p>
+				{/if}
 			</div>
 		{/if}
 	</div>
