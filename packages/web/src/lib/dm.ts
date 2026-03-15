@@ -98,7 +98,7 @@ export class DMManager {
     if (isOutgoing) {
       // We can't decrypt our own outgoing DMs — use stored plaintext
       text = this.getOutgoingPlaintext(obj.id);
-      if (!text) return; // No stored plaintext, skip (already shown from sendDM)
+      if (!text) text = '[message sent from this device]'; // fallback if localStorage cleared
     } else {
       // Incoming — decrypt with our X25519 private key
       try {

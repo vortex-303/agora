@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { loadIdentity } from '$lib/identity.js';
-	import { identityState, connectionState, appState } from '$lib/stores.svelte.js';
+	import { identityState, connectionState, appState, triggerReactive } from '$lib/stores.svelte.js';
 	import { RelayPool, DEFAULT_RELAYS } from '$lib/relay-pool.js';
 	import { FeedManager } from '$lib/feed.js';
 	import { ProfileManager } from '$lib/profiles.js';
@@ -73,10 +73,12 @@
 
 		const vm = new VoteManager(fm, identity);
 		await vm.init();
+		vm.onChange(triggerReactive);
 		appState.voteManager = vm;
 
 		const mod = new ClientModeration(fm, identity);
 		await mod.init();
+		mod.onChange(triggerReactive);
 		appState.moderation = mod;
 	});
 

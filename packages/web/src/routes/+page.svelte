@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { createObject, type PostContent } from '@agora/core';
-	import { identityState, feedState, addToFeed, setFeed, appState } from '$lib/stores.svelte.js';
+	import { identityState, feedState, addToFeed, setFeed, appState, reactiveState } from '$lib/stores.svelte.js';
 	import { TOPICS } from '$lib/topics.js';
 	import Markdown from '$lib/Markdown.svelte';
 
@@ -115,6 +115,9 @@
 			.sort((a, b) => b.body.timestamp - a.body.timestamp)
 	);
 
+	// Force reactivity on vote/moderation changes
+	let _tick = $derived(reactiveState.tick);
+
 	// Main feed: ranked by engagement + recency algo
 	function rankScore(obj: typeof feedState.objects[0]): number {
 		const votes = appState.voteManager?.getVotes(obj.id) || { score: 0 };
@@ -127,7 +130,7 @@
 	}
 
 	let mainFeedPosts = $derived(
-		feedState.objects
+		((_tick), feedState.objects
 			.filter((o) => {
 				if (o.body.type !== 'post') return false;
 				const c = o.body.content as PostContent;
@@ -135,7 +138,7 @@
 				if (!appState.moderation?.shouldShow(o)) return false;
 				return true;
 			})
-			.sort((a, b) => rankScore(b) - rankScore(a))
+			.sort((a, b) => rankScore(b) - rankScore(a)))
 	);
 
 	let displayPosts = $derived(feedMode === 'personal' ? personalPosts : mainFeedPosts);

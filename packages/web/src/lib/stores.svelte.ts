@@ -27,6 +27,10 @@ export const appState = $state<{
   moderation: null,
 });
 
+// Reactive tick counter — increment to force re-renders when non-reactive managers change
+export const reactiveState = $state<{ tick: number }>({ tick: 0 });
+export function triggerReactive(): void { reactiveState.tick++; }
+
 export function addToFeed(obj: SignedObject): void {
   if (feedState.objects.some((o) => o.id === obj.id)) return;
   feedState.objects = [...feedState.objects, obj].sort((a, b) => b.body.timestamp - a.body.timestamp);
