@@ -164,10 +164,10 @@ footer a:hover { color: var(--accent); }
   <div class="container nav-inner">
     <a href="/" class="nav-logo">agora<span>.</span></a>
     <div class="nav-links">
+      <a href="#algorithm">The Algorithm</a>
+      <a href="#communities">Communities</a>
       <a href="#sovereignty">Sovereignty</a>
-      <a href="#how">How It Works</a>
       <a href="#truth">The Truth</a>
-      <a href="#architecture">Architecture</a>
     </div>
     <a href="https://app.agorap2p.com" class="btn-primary">Open Agora</a>
   </div>
@@ -198,6 +198,81 @@ footer a:hover { color: var(--accent); }
   </div>
 </section>
 
+<!-- The Algorithm Problem -->
+<section class="section-dark" id="algorithm">
+  <div class="container">
+    <div class="section-eyebrow reveal">The Algorithm</div>
+    <h2 class="section-title reveal">You should know why you're seeing<br>what you're <span class="accent">seeing.</span></h2>
+    <p class="section-sub reveal">Every major platform uses a proprietary algorithm to decide what reaches you. It's optimized for one thing: keeping you scrolling. Not truth. Not relevance. Not what your friends actually said. Engagement. Because engagement sells ads.</p>
+    <div class="compare-grid reveal">
+      <div class="compare-col compare-old">
+        <h3>Their algorithm</h3>
+        <div class="compare-item"><span class="icon">✕</span> Proprietary — you can't see how it works</div>
+        <div class="compare-item"><span class="icon">✕</span> Optimized for engagement (rage, outrage, dopamine)</div>
+        <div class="compare-item"><span class="icon">✕</span> Paid posts disguised as organic content</div>
+        <div class="compare-item"><span class="icon">✕</span> Suppresses reach unless you pay to boost</div>
+        <div class="compare-item"><span class="icon">✕</span> A/B tests your emotions without consent</div>
+        <div class="compare-item"><span class="icon">✕</span> Changes without notice to serve business goals</div>
+      </div>
+      <div class="compare-col compare-new">
+        <h3>Agora's ranking</h3>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Open source — the formula is in the code, readable by anyone</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Ranked by votes + replies + time decay. Discussion surfaces, noise sinks.</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No promoted posts. No paid placement. No native ads.</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Every post has equal reach. No pay-to-play.</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No tracking. No profiling. Same inputs = same ranking for everyone.</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Deterministic math. Same formula forever. Verify it yourself.</div>
+      </div>
+    </div>
+    <div class="algo-formula reveal" style="text-align:center; margin-top:40px;">
+      <p style="color:var(--text-tertiary); font-size:0.8rem; margin-bottom:12px;">The entire ranking algorithm:</p>
+      <code style="font-family:var(--font-mono); font-size:1.1rem; color:var(--accent); background:var(--bg-raised); padding:12px 24px; border-radius:8px; border:1px solid rgba(249,115,22,0.15); display:inline-block;">score = (votes + 1) &times; (1 + replies &times; 0.3) / (hours/6 + 1)<sup>1.5</sup></code>
+      <p style="color:var(--text-tertiary); font-size:0.8rem; margin-top:12px;">That's it. No hidden weights. No user profiling. Math.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Communities -->
+<section id="communities">
+  <div class="container">
+    <div class="section-eyebrow reveal">Communities</div>
+    <h2 class="section-title reveal">Communities owned by<br>their members.</h2>
+    <p class="section-sub reveal">On other platforms, a subreddit can be nuked by an admin, a Facebook group can be deleted overnight, a Discord server exists at the pleasure of a company in San Francisco. On Agora, communities are claimed by cryptographic identity. The first person to claim a name owns it. Moderation is transparent. Every action is signed.</p>
+    <div class="card-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">🏛️</div>
+        <h3>Claim, Don't Ask</h3>
+        <p>Create a community by claiming a name. No application form. No approval process. No waiting. First come, first served — enforced by cryptography, not policy.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔍</div>
+        <h3>Transparent Moderation</h3>
+        <p>Every mod action — hide, pin, ban — is a signed cryptographic object. Who did it, when, and why. Members can toggle "show hidden" to see what was removed. No shadow bans. No invisible hands.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📋</div>
+        <h3>Auditable History</h3>
+        <p>Moderation logs aren't hidden in an admin panel. They're signed objects on the same network as posts. Anyone can verify that a moderator actually made a decision — not a bot, not an algorithm, not an anonymous trust & safety team.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🗳️</div>
+        <h3>Community Voting</h3>
+        <p>Upvote and downvote posts. One vote per identity per post — cryptographically enforced. No bots farming engagement. No vote manipulation. Every vote is signed by a real key.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔀</div>
+        <h3>Follow What Matters</h3>
+        <p>Follow communities to build your personal feed. Unfollow to remove them. You curate your experience — not an algorithm optimized to make you angry enough to keep scrolling.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🚀</div>
+        <h3>Anyone Can Create</h3>
+        <p>There's no approval process, no content policy review, no "your community doesn't meet our guidelines." If you want a community for medieval cooking or post-quantum cryptography, make one. It's yours.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Sovereignty -->
 <section class="section-dark" id="sovereignty">
   <div class="container">
@@ -222,8 +297,8 @@ footer a:hover { color: var(--accent); }
       </div>
       <div class="feature-card reveal">
         <div class="feature-icon">📡</div>
-        <h3>Peer-to-Peer Mesh</h3>
-        <p>WebRTC data channels between browsers. Your posts propagate through the mesh without touching a server. The relay is a convenience, not a dependency.</p>
+        <h3>Run Your Own Relay</h3>
+        <p>Don't trust our servers? Run your own in 30 seconds. The code is open, the protocol is documented, and your identity works on any relay. You're never locked in. You're never locked out.</p>
       </div>
       <div class="feature-card reveal">
         <div class="feature-icon">✍️</div>
@@ -232,18 +307,51 @@ footer a:hover { color: var(--accent); }
       </div>
       <div class="feature-card reveal">
         <div class="feature-icon">📴</div>
-        <h3>Your Data Lives With You</h3>
-        <p>Everything caches locally. Post while offline — it delivers when you reconnect. Unplug from the internet entirely and your feed is still on your device, readable, yours.</p>
+        <h3>Portable Identity</h3>
+        <p>Your twelve words work on any relay, any device, forever. There's no export button because there's nothing to export from. Your identity was never stored on someone else's server.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- The Truth -->
+<section id="truth">
+  <div class="container">
+    <div class="section-eyebrow reveal">The Truth</div>
+    <h2 class="section-title reveal">You are not the user.<br>You are the <span class="accent">product.</span></h2>
+    <p class="section-sub reveal">Every "free" platform made money from the same thing: you. Your attention, your relationships, your private conversations — packaged and sold. Here's what they do that we don't.</p>
+    <div class="compare-grid reveal">
+      <div class="compare-col compare-old">
+        <h3>What they do</h3>
+        <div class="compare-item"><span class="icon">✕</span> Read your messages to target ads</div>
+        <div class="compare-item"><span class="icon">✕</span> Sell your social graph to data brokers</div>
+        <div class="compare-item"><span class="icon">✕</span> Shadow ban without telling you</div>
+        <div class="compare-item"><span class="icon">✕</span> A/B test your emotions for engagement</div>
+        <div class="compare-item"><span class="icon">✕</span> Show you promoted content disguised as organic</div>
+        <div class="compare-item"><span class="icon">✕</span> Track you across the internet with pixels and cookies</div>
+        <div class="compare-item"><span class="icon">✕</span> Hand your data to governments without a warrant</div>
+        <div class="compare-item"><span class="icon">✕</span> Change terms of service retroactively</div>
+      </div>
+      <div class="compare-col compare-new">
+        <h3>What we deliberately don't</h3>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No analytics on your behavior — zero telemetry</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No social graph extraction — we don't know who you follow</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No shadow bans — moderation is signed and visible</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No A/B testing — same experience for everyone</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No ads. No promoted posts. No paid placement. Ever.</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No tracking pixels, no cookies, no fingerprinting</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No data to hand over — messages are encrypted, we can't read them</div>
+        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No read receipts, no typing indicators, no "last seen" — privacy by design</div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- How it works -->
-<section id="how">
+<section class="section-dark" id="how">
   <div class="container">
     <div class="section-eyebrow reveal">How It Works</div>
-    <h2 class="section-title reveal">Trust math.<br>Not corporations.</h2>
+    <h2 class="section-title reveal">Trust math.<br>Not Elon. Not the next<br>"hero" who buys a stage.</h2>
     <p class="section-sub reveal">Three steps. No sign-up form. No email confirmation. No phone number. No waiting for approval from someone who doesn't know you.</p>
     <div class="card-grid">
       <div class="feature-card reveal">
@@ -259,36 +367,7 @@ footer a:hover { color: var(--accent); }
       <div class="feature-card reveal">
         <div class="feature-icon" style="color: var(--accent)">03</div>
         <h3>Speak Freely</h3>
-        <p>Post to topic communities. Reply to conversations. Send encrypted messages. Every action is cryptographically signed — verifiable by anyone, forgeable by no one. Your words carry your signature, not a platform's watermark.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- The Truth -->
-<section class="section-dark" id="truth">
-  <div class="container">
-    <div class="section-eyebrow reveal">The Truth</div>
-    <h2 class="section-title reveal">You are not the user.<br>You are the product.</h2>
-    <p class="section-sub reveal">Every "free" platform you've ever used made money from the same thing: you. Your attention, your relationships, your private conversations — packaged and sold. This is what that looks like side by side.</p>
-    <div class="compare-grid reveal">
-      <div class="compare-col compare-old">
-        <h3>How it works today</h3>
-        <div class="compare-item"><span class="icon">✕</span> Your identity exists at someone else's discretion</div>
-        <div class="compare-item"><span class="icon">✕</span> Your "private" messages are readable by the company, its employees, and anyone they share data with</div>
-        <div class="compare-item"><span class="icon">✕</span> An algorithm decides what you see — optimized for engagement, not truth</div>
-        <div class="compare-item"><span class="icon">✕</span> One policy change, one acquisition, one government request — and you're gone</div>
-        <div class="compare-item"><span class="icon">✕</span> Your social graph, interests, and behavior are the product being sold</div>
-        <div class="compare-item"><span class="icon">✕</span> You can't leave without losing everything</div>
-      </div>
-      <div class="compare-col compare-new">
-        <h3>How Agora works</h3>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Your identity is a cryptographic key that exists on your device. No one issued it. No one can revoke it.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Messages are encrypted end-to-end with per-message forward secrecy. Not even relay operators can read them.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> You choose your topics, your relays, your community. No algorithm. No feed manipulation.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Your key is yours. Take it to any relay. Run your own. Nobody can deplatform mathematics.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Zero analytics. Zero tracking. Zero data collection. The code is open — verify it yourself.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Your data lives on your device. Export it, move it, delete it. It was never ours to begin with.</div>
+        <p>Post to communities. Reply to conversations. Send encrypted messages. Every action is cryptographically signed — verifiable by anyone, forgeable by no one. Your words carry your signature, not a platform's watermark.</p>
       </div>
     </div>
   </div>
@@ -327,8 +406,26 @@ footer a:hover { color: var(--accent); }
   </div>
 </section>
 
+<!-- Open Source -->
+<section class="section-dark" id="source">
+  <div class="container" style="text-align:center; max-width:640px;">
+    <div class="section-eyebrow reveal">Open Source</div>
+    <h2 class="section-title reveal">If you can't read the code,<br>you can't trust the promise.</h2>
+    <p class="section-sub reveal" style="max-width:none">Every company says they care about privacy. Most of them are lying. The only way to know for sure is to read the code. Agora is MIT licensed — every line, every algorithm, every cryptographic decision is public and auditable. If we ever betray our principles, you'll see it in the diff.</p>
+    <div class="hero-stats reveal" style="justify-content:center; margin-bottom:40px;">
+      <div class="hero-stat"><div class="num" data-target="7000">0</div><div class="label">Lines of Code</div></div>
+      <div class="hero-stat"><div class="num" data-target="34">0</div><div class="label">Tests Passing</div></div>
+      <div class="hero-stat"><div class="num" data-target="3">0</div><div class="label">Relays Live</div></div>
+      <div class="hero-stat"><div class="num" data-target="4">0</div><div class="label">Runtime Deps</div></div>
+    </div>
+    <div class="cta-actions reveal">
+      <a href="https://github.com/vortex-303/agora" class="btn-primary">Read the Code &rarr;</a>
+    </div>
+  </div>
+</section>
+
 <!-- Principles -->
-<section class="section-dark">
+<section>
   <div class="container" style="text-align:center; max-width: 640px;">
     <div class="section-eyebrow reveal">Principles</div>
     <h2 class="section-title reveal" style="margin-bottom:40px">What we believe.</h2>
@@ -336,7 +433,8 @@ footer a:hover { color: var(--accent); }
       <p>Private conversations are a human right, not a premium feature.</p>
       <p>Your identity should outlive any company.</p>
       <p>If you can't read the source code, you can't trust the promise.</p>
-      <p>The best moderation is community-driven and transparent.</p>
+      <p>Moderation should be transparent, signed, and auditable — not arbitrary.</p>
+      <p>No one should profit from your attention without your knowledge.</p>
       <p>Infrastructure should be commodity — replaceable, competitive, open.</p>
       <p>The internet was built to be decentralized. We just forgot.</p>
     </div>
@@ -344,7 +442,7 @@ footer a:hover { color: var(--accent); }
 </section>
 
 <!-- CTA -->
-<section class="cta-section">
+<section class="cta-section section-dark">
   <div class="container">
     <h2 class="reveal">The conversation doesn't<br>belong to <span class="accent">anyone.</span></h2>
     <p class="reveal">No sign-up. No credit card. No terms of service you'll regret agreeing to.<br>Open source. Open protocol. Open door.</p>
