@@ -3,6 +3,7 @@ import type { ConnectionStatus } from './relay.js';
 import type { FeedManager } from './feed.js';
 import type { ProfileManager } from './profiles.js';
 import type { DMManager } from './dm.js';
+import type { CommunityManager } from './communities.js';
 
 export const identityState = $state<{ identity: Identity | null }>({ identity: null });
 export const connectionState = $state<{ status: ConnectionStatus }>({ status: 'disconnected' });
@@ -12,10 +13,12 @@ export const appState = $state<{
   feedManager: FeedManager | null;
   profileManager: ProfileManager | null;
   dmManager: DMManager | null;
+  communityManager: CommunityManager | null;
 }>({
   feedManager: null,
   profileManager: null,
   dmManager: null,
+  communityManager: null,
 });
 
 export function addToFeed(obj: SignedObject): void {

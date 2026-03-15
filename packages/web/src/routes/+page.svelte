@@ -111,6 +111,7 @@
 				#{topic.label}
 			</button>
 		{/each}
+		<a href="/communities" class="topic-tab browse-all">All ›</a>
 	</div>
 
 	<div class="compose card">
@@ -187,6 +188,7 @@
 		white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
 	}
 	.topic-tab:hover { border-color: var(--accent-border); color: var(--text-primary); }
+	.browse-all { text-decoration: none; color: var(--text-tertiary); font-size: 0.75rem; }
 	.topic-tab.active {
 		background: rgba(249,115,22,0.1); border-color: var(--accent);
 		color: var(--accent); font-weight: 600;
