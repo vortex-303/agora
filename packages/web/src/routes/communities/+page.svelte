@@ -12,17 +12,24 @@
 	let newDesc = $state('');
 
 	onMount(() => {
-		const check = setInterval(() => {
+		const check = setInterval(async () => {
 			const cm = appState.communityManager;
-			if (cm) {
+			const fm = appState.feedManager;
+			if (cm && fm) {
 				clearInterval(check);
-				cm.updateCounts(feedState.objects);
-				communities = cm.getAllCommunities();
-				loaded = true;
-				cm.onChange(() => {
+
+				// Make sure posts are subscribed
+				await fm.subscribe('community-posts', [{ types: ['post'] }]);
+
+				const refresh = () => {
 					cm.updateCounts(feedState.objects);
 					communities = cm.getAllCommunities();
-				});
+				};
+
+				cm.onChange(refresh);
+				fm.onObject(refresh);
+				refresh();
+				loaded = true;
 			}
 		}, 50);
 		return () => clearInterval(check);
