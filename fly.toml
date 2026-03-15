@@ -3,6 +3,9 @@ primary_region = "sjc"
 
 [build]
 
+[env]
+  PEER_RELAYS = "wss://agora-relay-eu.fly.dev"
+
 [http_service]
   internal_port = 9800
   force_https = true

@@ -3,6 +3,9 @@ primary_region = "ams"
 
 [build]
 
+[env]
+  PEER_RELAYS = "wss://agora-relay.fly.dev"
+
 [http_service]
   internal_port = 9800
   force_https = true
