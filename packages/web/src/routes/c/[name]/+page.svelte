@@ -107,9 +107,15 @@
 <div class="community-header card">
 	<div class="header-top">
 		<h2><span class="hash">#</span>{name}</h2>
-		{#if community}
-			<span class="badge badge-online">community</span>
-		{/if}
+		<button class="follow-btn" class:following={appState.moderation?.isFollowingCommunity(name)}
+			onclick={() => {
+				const mod = appState.moderation;
+				if (!mod) return;
+				if (mod.isFollowingCommunity(name)) mod.unfollowCommunity(name);
+				else mod.followCommunity(name);
+			}}>
+			{appState.moderation?.isFollowingCommunity(name) ? 'Following' : 'Follow'}
+		</button>
 	</div>
 	{#if community?.description}
 		<p class="community-desc">{community.description}</p>
@@ -220,6 +226,13 @@
 	.header-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 	h2 { margin: 0; font-size: 1.3rem; color: var(--text-primary); }
 	.hash { color: var(--accent); }
+	.follow-btn {
+		background: var(--bg-input); border: 1px solid rgba(255,255,255,0.06);
+		color: var(--text-secondary); padding: 5px 14px; border-radius: 20px;
+		font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+	}
+	.follow-btn:hover { border-color: var(--accent); color: var(--accent); }
+	.follow-btn.following { background: rgba(249,115,22,0.1); border-color: var(--accent); color: var(--accent); }
 	.community-desc { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 8px; line-height: 1.5; }
 	.community-meta { display: flex; gap: 16px; font-size: 0.75rem; color: var(--text-tertiary); }
 	.unclaimed { margin-top: 8px; }

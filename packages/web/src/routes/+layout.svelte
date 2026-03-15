@@ -20,7 +20,7 @@
 	let copied = $state(false);
 
 	const NAV_ITEMS = [
-		{ href: '/', label: 'Feed', icon: '◆', match: (p: string) => p === '/' || p.startsWith('/post') || p.startsWith('/topic') },
+		{ href: '/', label: 'Feed', icon: '◆', match: (p: string) => p === '/' || p.startsWith('/post') },
 		{ href: '/communities', label: 'Communities', icon: '⬡', match: (p: string) => p === '/communities' || p.startsWith('/c/') },
 		{ href: '/network', label: 'Network', icon: '◎', match: (p: string) => p === '/network' },
 		{ href: '/search', label: 'Search', icon: '⌕', match: (p: string) => p === '/search' },

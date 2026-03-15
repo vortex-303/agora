@@ -1,30 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createObject, type PostContent, type SignedObject } from '@agora/core';
+	import { createObject, type PostContent } from '@agora/core';
 	import { identityState, feedState, addToFeed, setFeed, appState } from '$lib/stores.svelte.js';
 	import { TOPICS } from '$lib/topics.js';
 	import Markdown from '$lib/Markdown.svelte';
 
 	let composeText = $state('');
-	let activeTopic = $state('general');
-	let feedMode = $state<'topic' | 'personal'>('topic');
+	let composeCommunity = $state('general');
+	let feedMode = $state<'personal' | 'explore'>('explore');
 	let loaded = $state(false);
 	let composeImage = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
-	let newTopicName = $state('');
-	let showNewTopic = $state(false);
+	let showCommunityPicker = $state(false);
 
 	onMount(() => {
-		// Default to personal feed if user follows any communities
-		const mod = appState.moderation;
-		if (mod && mod.getFollowedCommunities().length > 0) {
-			feedMode = 'personal';
-		}
-
 		const check = setInterval(async () => {
 			const fm = appState.feedManager;
+			const mod = appState.moderation;
 			if (fm) {
 				clearInterval(check);
+				if (mod && mod.getFollowedCommunities().length > 0) feedMode = 'personal';
 				const cached = await fm.loadCachedFeed();
 				if (cached.length > 0) setFeed(cached);
 				fm.onObject((obj) => { if (obj.body.type === 'post') addToFeed(obj); });
@@ -40,7 +35,7 @@
 		const fm = appState.feedManager;
 		if (!identity || !fm || (!composeText.trim() && !composeImage)) return;
 		const state = fm.getAuthorState(identity.publicKeyBase64);
-		const content: PostContent = { text: composeText.trim(), topic: activeTopic };
+		const content: PostContent = { text: composeText.trim(), topic: composeCommunity };
 		if (composeImage) content.image = composeImage;
 		const obj = createObject({
 			author: identity.publicKeyBase64, privateKey: identity.privateKey,
@@ -89,11 +84,52 @@
 		return new Date(ts).toLocaleDateString();
 	}
 
-	function createTopic() {
-		if (!newTopicName.trim()) return;
-		activeTopic = newTopicName.trim().toLowerCase();
-		showNewTopic = false;
-		newTopicName = '';
+	// All known communities: seeded + user-created (from posts)
+	let allCommunities = $derived(() => {
+		const seen = new Set(TOPICS.map(t => t.id));
+		const extra: string[] = [];
+		for (const obj of feedState.objects) {
+			if (obj.body.type === 'post') {
+				const t = (obj.body.content as PostContent).topic;
+				if (t && !seen.has(t)) { seen.add(t); extra.push(t); }
+			}
+		}
+		return [
+			...TOPICS.map(t => t.id),
+			...extra,
+		];
+	});
+
+	let followedCommunities = $derived(appState.moderation?.getFollowedCommunities() || []);
+
+	// Personal feed: posts from followed communities
+	let personalPosts = $derived(
+		feedState.objects.filter((o) => {
+			if (o.body.type !== 'post') return false;
+			const c = o.body.content as PostContent;
+			if (c.reply) return false;
+			if (!appState.moderation?.shouldShow(o)) return false;
+			return c.topic ? followedCommunities.includes(c.topic) : false;
+		})
+	);
+
+	// Explore: all posts across all communities, no replies
+	let explorePosts = $derived(
+		feedState.objects.filter((o) => {
+			if (o.body.type !== 'post') return false;
+			const c = o.body.content as PostContent;
+			if (c.reply) return false;
+			if (!appState.moderation?.shouldShow(o)) return false;
+			return true;
+		})
+	);
+
+	let displayPosts = $derived(feedMode === 'personal' ? personalPosts : explorePosts);
+
+	function replyCount(postId: string): number {
+		return feedState.objects.filter((o) =>
+			o.body.type === 'post' && (o.body.content as PostContent).reply === postId
+		).length;
 	}
 
 	async function vote(id: string, dir: 'upvote' | 'downvote') {
@@ -104,114 +140,38 @@
 		await appState.moderation?.deletePost(id);
 	}
 
-	// All known topics: hardcoded + any topic seen in posts
-	let allTopics = $derived(() => {
-		const seen = new Set(TOPICS.map(t => t.id));
-		const extra: string[] = [];
-		for (const obj of feedState.objects) {
-			if (obj.body.type === 'post') {
-				const t = (obj.body.content as PostContent).topic;
-				if (t && !seen.has(t)) { seen.add(t); extra.push(t); }
-			}
-		}
-		return [...TOPICS, ...extra.map(id => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1), description: '' }))];
-	});
-
-	// Personal feed: posts from followed communities
-	let personalPosts = $derived(
-		feedState.objects.filter((o) => {
-			if (o.body.type !== 'post') return false;
-			const c = o.body.content as PostContent;
-			if (c.reply) return false;
-			if (!appState.moderation?.shouldShow(o)) return false;
-			const followed = appState.moderation?.getFollowedCommunities() || [];
-			return c.topic && followed.includes(c.topic);
-		})
-	);
-
-	// Topic posts
-	let topicPosts = $derived(
-		feedState.objects.filter((o) => {
-			if (o.body.type !== 'post') return false;
-			const c = o.body.content as PostContent;
-			if (c.topic !== activeTopic || c.reply) return false;
-			if (!appState.moderation?.shouldShow(o)) return false;
-			return true;
-		})
-	);
-
-	let displayPosts = $derived(feedMode === 'personal' ? personalPosts : topicPosts);
-
-	function replyCount(postId: string): number {
-		return feedState.objects.filter((o) =>
-			o.body.type === 'post' && (o.body.content as PostContent).reply === postId
-		).length;
-	}
-
-	function isFollowing(topic: string): boolean {
-		return appState.moderation?.isFollowingCommunity(topic) || false;
-	}
-
-	function toggleFollow(topic: string) {
-		const mod = appState.moderation;
-		if (!mod) return;
-		if (mod.isFollowingCommunity(topic)) mod.unfollowCommunity(topic);
-		else mod.followCommunity(topic);
+	function selectCommunity(name: string) {
+		composeCommunity = name;
+		showCommunityPicker = false;
 	}
 
 	let isMyPost = (author: string) => author === identityState.identity?.publicKeyBase64;
 </script>
 
 {#if identityState.identity}
-	<!-- Feed mode tabs -->
 	<div class="mode-tabs">
 		<button class="mode-tab" class:active={feedMode === 'personal'} onclick={() => { feedMode = 'personal'; }}>
 			My Feed
+			{#if followedCommunities.length > 0}
+				<span class="follow-count">{followedCommunities.length}</span>
+			{/if}
 		</button>
-		<button class="mode-tab" class:active={feedMode === 'topic'} onclick={() => { feedMode = 'topic'; }}>
-			Browse Topics
+		<button class="mode-tab" class:active={feedMode === 'explore'} onclick={() => { feedMode = 'explore'; }}>
+			Explore
 		</button>
 	</div>
 
-	{#if feedMode === 'topic'}
-		<div class="topic-tabs">
-			{#each allTopics() as topic (topic.id)}
-				<button class="topic-tab" class:active={activeTopic === topic.id}
-					onclick={() => { activeTopic = topic.id; }}>
-					#{topic.label}
-				</button>
-			{/each}
-			<button class="topic-tab new-topic" onclick={() => { showNewTopic = !showNewTopic; }}>+</button>
+	{#if feedMode === 'personal' && followedCommunities.length === 0}
+		<div class="empty-state card">
+			<p>Your feed is empty.</p>
+			<p class="sub">Browse <a href="/communities">Communities</a> and follow the ones you're interested in. Their posts will appear here.</p>
 		</div>
-
-		{#if showNewTopic}
-			<div class="new-topic-form card">
-				<input class="input" bind:value={newTopicName} placeholder="New topic name..."
-					onkeydown={(e) => { if (e.key === 'Enter') createTopic(); }} />
-				<button class="btn" onclick={createTopic} disabled={!newTopicName.trim()}>Create</button>
-			</div>
-		{/if}
-
-		<div class="topic-header">
-			<span class="topic-name">#{activeTopic}</span>
-			<button class="follow-btn" class:following={isFollowing(activeTopic)}
-				onclick={() => toggleFollow(activeTopic)}>
-				{isFollowing(activeTopic) ? 'Following' : 'Follow'}
-			</button>
-		</div>
-	{:else}
-		{#if (appState.moderation?.getFollowedCommunities().length || 0) === 0}
-			<div class="empty-follow">
-				<p>You're not following any communities yet.</p>
-				<p class="sub">Switch to "Browse Topics" and follow some communities to build your personal feed.</p>
-			</div>
-		{/if}
 	{/if}
 
 	<div class="compose card">
 		<textarea class="input" bind:value={composeText}
-			placeholder={feedMode === 'topic' ? `Post to #${activeTopic}...` : 'What\'s on your mind?'}
-			rows="2" onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) post(); }}
+			placeholder="What's on your mind?" rows="2"
+			onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) post(); }}
 			onpaste={handlePaste}
 		></textarea>
 		{#if composeImage}
@@ -222,7 +182,23 @@
 		{/if}
 		<div class="compose-bar">
 			<div class="compose-left">
-				<span class="compose-topic">#{activeTopic}</span>
+				<div class="community-picker-wrap">
+					<button class="community-pick-btn" onclick={() => { showCommunityPicker = !showCommunityPicker; }}>
+						<span class="pick-label">#{composeCommunity}</span>
+						<span class="pick-caret">▾</span>
+					</button>
+					{#if showCommunityPicker}
+						<div class="community-dropdown">
+							{#each allCommunities() as name (name)}
+								<button class="community-opt" class:active={composeCommunity === name}
+									onclick={() => selectCommunity(name)}>
+									#{name}
+								</button>
+							{/each}
+							<a href="/communities" class="community-opt browse-link">Browse all →</a>
+						</div>
+					{/if}
+				</div>
 				<button class="img-btn" onclick={() => fileInput.click()} title="Add image">🖼</button>
 				<input bind:this={fileInput} type="file" accept="image/*" onchange={handleFile} hidden />
 			</div>
@@ -241,8 +217,8 @@
 				<div class="post-header">
 					<a href="/u/{encodeURIComponent(obj.body.author)}" class="author mono"
 						onclick={(e) => e.stopPropagation()}>{displayName(obj.body.author)}</a>
-					{#if content.topic && feedMode === 'personal'}
-						<a href="/c/{content.topic}" class="topic-link" onclick={(e) => e.stopPropagation()}>#{content.topic}</a>
+					{#if content.topic}
+						<a href="/c/{content.topic}" class="community-tag" onclick={(e) => e.stopPropagation()}>#{content.topic}</a>
 					{/if}
 					<span class="time">{formatTime(obj.body.timestamp)}</span>
 				</div>
@@ -271,15 +247,10 @@
 				</div>
 			</div>
 		{/each}
-		{#if displayPosts.length === 0 && loaded}
+		{#if displayPosts.length === 0 && loaded && feedMode === 'explore'}
 			<div class="empty">
-				{#if feedMode === 'personal'}
-					<p>Your personal feed is empty.</p>
-					<p class="sub">Follow some communities to see posts here.</p>
-				{:else}
-					<p>No posts in #{activeTopic} yet.</p>
-					<p class="sub">Be the first to post.</p>
-				{/if}
+				<p>The agora is quiet.</p>
+				<p class="sub">Post something to break the silence.</p>
 			</div>
 		{/if}
 	</div>
@@ -288,45 +259,24 @@
 {/if}
 
 <style>
-	.mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+	.mode-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
 	.mode-tab {
+		display: flex; align-items: center; gap: 6px;
 		background: none; border: none; padding: 8px 16px; border-radius: 8px;
 		color: var(--text-tertiary); font-size: 0.85rem; font-weight: 600;
 		cursor: pointer; transition: all 0.2s;
 	}
 	.mode-tab:hover { color: var(--text-primary); }
 	.mode-tab.active { color: var(--accent); background: rgba(249,115,22,0.08); }
+	.follow-count {
+		background: var(--accent); color: #000; font-size: 0.6rem; font-weight: 700;
+		min-width: 16px; height: 16px; border-radius: 8px;
+		display: flex; align-items: center; justify-content: center; padding: 0 4px;
+	}
 
-	.topic-tabs {
-		display: flex; gap: 4px; margin-bottom: 12px;
-		overflow-x: auto; padding-bottom: 4px;
-		-webkit-overflow-scrolling: touch;
-	}
-	.topic-tabs::-webkit-scrollbar { display: none; }
-	.topic-tab {
-		background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04);
-		border-radius: 20px; padding: 6px 14px; color: var(--text-secondary);
-		font-size: 0.8rem; font-weight: 500; cursor: pointer;
-		white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
-	}
-	.topic-tab:hover { border-color: var(--accent-border); color: var(--text-primary); }
-	.topic-tab.active { background: rgba(249,115,22,0.1); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-	.new-topic { color: var(--accent); border-color: var(--accent-border); }
-
-	.new-topic-form { display: flex; gap: 8px; margin-bottom: 12px; padding: 12px; }
-	.new-topic-form .input { flex: 1; font-size: 0.85rem; }
-
-	.topic-header {
-		display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
-	}
-	.topic-name { color: var(--accent); font-size: 1rem; font-weight: 600; }
-	.follow-btn {
-		background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.06);
-		color: var(--text-secondary); padding: 4px 14px; border-radius: 20px;
-		font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
-	}
-	.follow-btn:hover { border-color: var(--accent); color: var(--accent); }
-	.follow-btn.following { background: rgba(249,115,22,0.1); border-color: var(--accent); color: var(--accent); }
+	.empty-state { padding: 32px; text-align: center; margin-bottom: 16px; }
+	.empty-state p { margin: 4px 0; color: var(--text-secondary); }
+	.empty-state .sub { font-size: 0.85rem; color: var(--text-tertiary); }
 
 	.compose { margin-bottom: 16px; }
 	.compose textarea { resize: vertical; min-height: 50px; background: var(--bg-input); border-color: rgba(255,255,255,0.04); }
@@ -340,9 +290,39 @@
 	}
 	.compose-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 	.compose-left { display: flex; align-items: center; gap: 8px; }
-	.compose-topic { color: var(--text-tertiary); font-size: 0.8rem; }
 	.img-btn { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: 0.5; transition: opacity 0.2s; }
 	.img-btn:hover { opacity: 1; }
+
+	/* Community picker dropdown */
+	.community-picker-wrap { position: relative; }
+	.community-pick-btn {
+		display: flex; align-items: center; gap: 4px;
+		background: var(--bg-input); border: 1px solid rgba(255,255,255,0.06);
+		border-radius: 6px; padding: 5px 10px; cursor: pointer;
+		color: var(--accent); font-size: 0.8rem; font-weight: 500; transition: all 0.2s;
+	}
+	.community-pick-btn:hover { border-color: var(--accent-border); }
+	.pick-caret { font-size: 0.6rem; color: var(--text-tertiary); }
+	.community-dropdown {
+		position: absolute; bottom: calc(100% + 6px); left: 0;
+		background: var(--bg-raised); border: 1px solid rgba(255,255,255,0.08);
+		border-radius: 10px; padding: 4px; z-index: 50; min-width: 160px;
+		max-height: 240px; overflow-y: auto;
+		box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+		animation: dropdown-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	@keyframes dropdown-in {
+		from { opacity: 0; transform: translateY(4px) scale(0.95); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
+	}
+	.community-opt {
+		display: block; width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
+		background: none; color: var(--text-secondary); font-size: 0.8rem;
+		cursor: pointer; text-align: left; transition: all 0.1s; text-decoration: none;
+	}
+	.community-opt:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+	.community-opt.active { color: var(--accent); }
+	.browse-link { color: var(--text-tertiary); font-size: 0.75rem; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 4px; }
 
 	.feed { display: flex; flex-direction: column; gap: 8px; }
 	.post { padding: 14px 16px; cursor: pointer; transition: all 0.2s; }
@@ -350,8 +330,8 @@
 	.post-header { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; margin-bottom: 8px; }
 	.author { color: var(--accent); font-size: 0.8rem; font-weight: 500; }
 	.author:hover { color: var(--accent-hover); }
-	.topic-link { color: var(--text-tertiary); font-size: 0.75rem; }
-	.topic-link:hover { color: var(--accent); }
+	.community-tag { color: var(--text-tertiary); font-size: 0.75rem; }
+	.community-tag:hover { color: var(--accent); }
 	.time { color: var(--text-tertiary); margin-left: auto; font-size: 0.75rem; }
 	.post-text { line-height: 1.5; font-size: 0.9rem; }
 	.post-image { margin-top: 10px; }
@@ -376,8 +356,8 @@
 	}
 	.delete-btn:hover { color: #f87171; }
 
-	.empty, .empty-follow { text-align: center; margin-top: 48px; color: var(--text-tertiary); }
-	.empty p, .empty-follow p { margin: 4px 0; }
+	.empty { text-align: center; margin-top: 48px; color: var(--text-tertiary); }
+	.empty p { margin: 4px 0; }
 	.sub { font-size: 0.85rem; }
 	.loading { text-align: center; margin-top: 64px; color: var(--text-tertiary); }
 </style>
