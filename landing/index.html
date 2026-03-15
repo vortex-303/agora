@@ -178,8 +178,8 @@ footer a:hover { color: var(--accent); }
   <div class="container">
     <div class="hero-content">
       <div class="hero-badge"><span class="pulse"></span> No accounts &middot; No tracking &middot; No permission needed</div>
-      <h1>Your words.<br>Your keys.<br><span class="accent">Your network.</span></h1>
-      <p class="hero-sub">Somewhere along the way, talking to people online started requiring permission from a corporation. Agora doesn't ask. Your identity is a cryptographic key that you generate, you hold, and nobody can revoke. Your messages are encrypted before they leave your device. The network runs on math, not terms of service.</p>
+      <h1>Talk without<br><span class="accent">permission.</span></h1>
+      <p class="hero-sub">A messaging network built on cryptography. No company reads your messages. No algorithm filters your reach. No authority decides who gets to speak. Your identity is a key you hold. Your conversations are encrypted before they leave your device. The network runs on math, not terms of service.</p>
       <div class="code-pill">
         <span class="prompt">$</span>
         <span class="typed" id="typed"></span><span class="cursor"></span>
@@ -198,11 +198,142 @@ footer a:hover { color: var(--accent); }
   </div>
 </section>
 
-<!-- The Algorithm Problem -->
+<!-- 1. Data Sovereignty -->
+<section class="section-dark" id="sovereignty">
+  <div class="container">
+    <div class="section-eyebrow reveal">The Uncensored Network</div>
+    <h2 class="section-title reveal">Messages no one can<br><span class="accent">intercept, censor, or revoke.</span></h2>
+    <p class="section-sub reveal">Every design decision in Agora exists to remove a gatekeeper. No one sits between you and the people you want to reach.</p>
+    <div class="card-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔑</div>
+        <h3>You Are Your Key</h3>
+        <p>No email. No phone number. No verification selfie. Twelve words generate your identity — an Ed25519 keypair that exists only on your device. Nobody issues it. Nobody can revoke it.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔒</div>
+        <h3>Encrypted by Default</h3>
+        <p>Every DM uses a fresh ephemeral key. Even if a relay is compromised, past messages can't be decrypted. Forward secrecy isn't a premium feature — it's the only mode.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🌐</div>
+        <h3>No Single Throat to Choke</h3>
+        <p>Your client connects to multiple relays across continents. Kill one — the others keep working. Kill them all — browsers talk directly. The network has no off switch.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📡</div>
+        <h3>Run Your Own Relay</h3>
+        <p>Don't trust our servers? Run your own in 30 seconds. The code is open, the protocol is documented, and your identity works on any relay. You're never locked in. You're never locked out.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">✍️</div>
+        <h3>Tamper-Proof by Math</h3>
+        <p>Every post is content-addressed and cryptographically signed. Nobody — not a relay operator, not an admin, not a government — can alter what you said or forge your words.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📴</div>
+        <h3>Portable Identity</h3>
+        <p>Your twelve words work on any relay, any device, forever. There's no export button because there's nothing to export from. Your identity was never stored on someone else's server.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. How It Works -->
+<section id="how">
+  <div class="container">
+    <div class="section-eyebrow reveal">How It Works</div>
+    <h2 class="section-title reveal">Trust math.<br>Not Elon. Not the next<br>"hero" who buys a stage.</h2>
+    <p class="section-sub reveal">Three steps. No sign-up form. No email confirmation. No phone number. No waiting for approval from someone who doesn't know you.</p>
+    <div class="card-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon" style="color: var(--accent)">01</div>
+        <h3>Twelve Words</h3>
+        <p>Your device generates twelve random words. From those words, mathematics derives your identity — an Ed25519 keypair. Write them down. That piece of paper is your account, forever, on any device, anywhere.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon" style="color: var(--accent)">02</div>
+        <h3>Connect Everywhere</h3>
+        <p>Your client connects to relays — simple servers that store and forward signed messages. They can't read your DMs. They can't edit your posts. They can't pretend to be you. Run your own if you want. Use ours if you don't.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon" style="color: var(--accent)">03</div>
+        <h3>Speak Freely</h3>
+        <p>Post to communities. Reply to conversations. Send encrypted messages. Every action is cryptographically signed — verifiable by anyone, forgeable by no one. Your words carry your signature, not a platform's watermark.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Architecture -->
+<section class="section-dark" id="architecture">
+  <div class="container">
+    <div class="section-eyebrow reveal">Architecture</div>
+    <h2 class="section-title reveal">A network with<br><span class="accent">no off switch.</span></h2>
+    <p class="section-sub reveal">Agora has no headquarters, no CEO, no board that can vote to sell your data. The architecture makes betrayal technically impossible — not just against policy.</p>
+    <div class="arch-visual reveal">
+      <div class="arch-diagram">
+        <div class="arch-node" style="animation: float 4s ease-in-out infinite">
+          <div class="icon">🖥️</div>
+          <div class="name">You</div>
+          <div class="sub">Keys + data on device</div>
+        </div>
+        <span class="arch-arrow">⟷</span>
+        <div class="arch-node" style="animation: float 4s ease-in-out infinite 0.5s">
+          <div class="icon">📡</div>
+          <div class="name">Relays</div>
+          <div class="sub">Dumb pipes, replaceable</div>
+        </div>
+        <span class="arch-arrow">⟷</span>
+        <div class="arch-node" style="animation: float 4s ease-in-out infinite 1s">
+          <div class="icon">🖥️</div>
+          <div class="name">Everyone</div>
+          <div class="sub">P2P mesh, no permission</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:16px; color:var(--text-tertiary); font-size:0.8rem;" class="reveal">
+      Relays sync across continents. Browsers connect directly via WebRTC. Kill any piece — the rest keeps working.
+    </div>
+  </div>
+</section>
+
+<!-- 4. P2P Heritage -->
+<section id="p2p">
+  <div class="container">
+    <div class="section-eyebrow reveal">P2P Heritage</div>
+    <h2 class="section-title reveal">Built on 25 years of P2P engineering.<br><span class="accent">No casino attached.</span></h2>
+    <p class="section-sub reveal">BitTorrent solved a problem in 2001 that most "web3" projects still can't: distributing data across millions of untrusted nodes without a central server. The core ideas — content addressing, gossip propagation, swarm resilience — are some of the most battle-tested engineering on the internet. Agora is built on those ideas. What we didn't take: the speculation.</p>
+    <div class="card-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">🧬</div>
+        <h3>Content Addressing</h3>
+        <p>Every post is identified by its SHA-256 hash — the same principle behind torrent piece verification. Same content = same ID, anywhere in the network. No database. No central authority assigning identifiers. The data is the address.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔄</div>
+        <h3>Gossip Protocol</h3>
+        <p>When a node receives a new object, it forwards to all peers. Objects ripple through the mesh like files through a torrent swarm. No coordinator. No bottleneck. Just propagation — the same protocol that made file sharing unkillable.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🛡️</div>
+        <h3>Swarm Resilience</h3>
+        <p>Kill a relay. Kill ten relays. The network keeps working because every browser has a copy and can talk directly to other browsers. This is the same architecture that made torrents survive two decades of legal attacks. It works because there's nothing to shut down.</p>
+      </div>
+    </div>
+    <div class="no-casino reveal" style="margin-top:40px; text-align:center; max-width:640px; margin-left:auto; margin-right:auto;">
+      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">The crypto industry took this same P2P technology and strapped a financial instrument to it. Tokens, mining, staking, airdrops — layers of speculation on top of engineering that already worked.</p>
+      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">We took the engineering and left the casino.</p>
+      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8;">No tokens. No mining. No "invest in the future of social media." The value of this network is the conversation happening on it — not a number on an exchange.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5. The Algorithm -->
 <section class="section-dark" id="algorithm">
   <div class="container">
     <div class="section-eyebrow reveal">The Algorithm</div>
-    <h2 class="section-title reveal">You should know why you're seeing<br>what you're <span class="accent">seeing.</span></h2>
+    <h2 class="section-title reveal">One line of math.<br>Not ten thousand lines of <span class="accent">manipulation.</span></h2>
     <p class="section-sub reveal">Every major platform uses a proprietary algorithm to decide what reaches you. It's optimized for one thing: keeping you scrolling. Not truth. Not relevance. Not what your friends actually said. Engagement. Because engagement sells ads.</p>
     <div class="compare-grid reveal">
       <div class="compare-col compare-old">
@@ -273,51 +404,10 @@ footer a:hover { color: var(--accent); }
   </div>
 </section>
 
-<!-- Sovereignty -->
-<section class="section-dark" id="sovereignty">
-  <div class="container">
-    <div class="section-eyebrow reveal">Data Sovereignty</div>
-    <h2 class="section-title reveal">You shouldn't need<br>permission to speak.</h2>
-    <p class="section-sub reveal">Every design decision in Agora exists to remove a gatekeeper. No one sits between you and the people you want to reach.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔑</div>
-        <h3>You Are Your Key</h3>
-        <p>No email. No phone number. No verification selfie. Twelve words generate your identity — an Ed25519 keypair that exists only on your device. Nobody issues it. Nobody can revoke it.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔒</div>
-        <h3>Encrypted by Default</h3>
-        <p>Every DM uses a fresh ephemeral key. Even if a relay is compromised, past messages can't be decrypted. Forward secrecy isn't a premium feature — it's the only mode.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🌐</div>
-        <h3>No Single Throat to Choke</h3>
-        <p>Your client connects to multiple relays across continents. Kill one — the others keep working. Kill them all — browsers talk directly. The network has no off switch.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">📡</div>
-        <h3>Run Your Own Relay</h3>
-        <p>Don't trust our servers? Run your own in 30 seconds. The code is open, the protocol is documented, and your identity works on any relay. You're never locked in. You're never locked out.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">✍️</div>
-        <h3>Tamper-Proof by Math</h3>
-        <p>Every post is content-addressed and cryptographically signed. Nobody — not a relay operator, not an admin, not a government — can alter what you said or forge your words.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">📴</div>
-        <h3>Portable Identity</h3>
-        <p>Your twelve words work on any relay, any device, forever. There's no export button because there's nothing to export from. Your identity was never stored on someone else's server.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- The Truth -->
+<!-- 6. The Truth -->
 <section id="truth">
   <div class="container">
-    <div class="section-eyebrow reveal">The Truth</div>
+    <div class="section-eyebrow reveal">The Price of Free</div>
     <h2 class="section-title reveal">You are not the user.<br>You are the <span class="accent">product.</span></h2>
     <p class="section-sub reveal">Every "free" platform made money from the same thing: you. Your attention, your relationships, your private conversations — packaged and sold. Here's what they do that we don't.</p>
     <div class="compare-grid reveal">
@@ -347,97 +437,7 @@ footer a:hover { color: var(--accent); }
   </div>
 </section>
 
-<!-- How it works -->
-<section class="section-dark" id="how">
-  <div class="container">
-    <div class="section-eyebrow reveal">How It Works</div>
-    <h2 class="section-title reveal">Trust math.<br>Not Elon. Not the next<br>"hero" who buys a stage.</h2>
-    <p class="section-sub reveal">Three steps. No sign-up form. No email confirmation. No phone number. No waiting for approval from someone who doesn't know you.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon" style="color: var(--accent)">01</div>
-        <h3>Twelve Words</h3>
-        <p>Your device generates twelve random words. From those words, mathematics derives your identity — an Ed25519 keypair. Write them down. That piece of paper is your account, forever, on any device, anywhere.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon" style="color: var(--accent)">02</div>
-        <h3>Connect Everywhere</h3>
-        <p>Your client connects to relays — simple servers that store and forward signed messages. They can't read your DMs. They can't edit your posts. They can't pretend to be you. Run your own if you want. Use ours if you don't.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon" style="color: var(--accent)">03</div>
-        <h3>Speak Freely</h3>
-        <p>Post to communities. Reply to conversations. Send encrypted messages. Every action is cryptographically signed — verifiable by anyone, forgeable by no one. Your words carry your signature, not a platform's watermark.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Architecture -->
-<section id="architecture">
-  <div class="container">
-    <div class="section-eyebrow reveal">Architecture</div>
-    <h2 class="section-title reveal">Designed to survive<br>the people who run it.</h2>
-    <p class="section-sub reveal">Agora has no headquarters, no CEO, no board that can vote to sell your data. The architecture makes betrayal technically impossible — not just against policy.</p>
-    <div class="arch-visual reveal">
-      <div class="arch-diagram">
-        <div class="arch-node" style="animation: float 4s ease-in-out infinite">
-          <div class="icon">🖥️</div>
-          <div class="name">You</div>
-          <div class="sub">Keys + data on device</div>
-        </div>
-        <span class="arch-arrow">⟷</span>
-        <div class="arch-node" style="animation: float 4s ease-in-out infinite 0.5s">
-          <div class="icon">📡</div>
-          <div class="name">Relays</div>
-          <div class="sub">Dumb pipes, replaceable</div>
-        </div>
-        <span class="arch-arrow">⟷</span>
-        <div class="arch-node" style="animation: float 4s ease-in-out infinite 1s">
-          <div class="icon">🖥️</div>
-          <div class="name">Everyone</div>
-          <div class="sub">P2P mesh, no permission</div>
-        </div>
-      </div>
-    </div>
-    <div style="text-align:center; margin-top:16px; color:var(--text-tertiary); font-size:0.8rem;" class="reveal">
-      Relays sync across continents. Browsers connect directly via WebRTC. Kill any piece — the rest keeps working.
-    </div>
-  </div>
-</section>
-
-<!-- P2P Heritage -->
-<section class="section-dark" id="p2p">
-  <div class="container">
-    <div class="section-eyebrow reveal">P2P Heritage</div>
-    <h2 class="section-title reveal">Built on 25 years of P2P engineering.<br><span class="accent">No casino attached.</span></h2>
-    <p class="section-sub reveal">BitTorrent solved a problem in 2001 that most "web3" projects still can't: distributing data across millions of untrusted nodes without a central server. The core ideas — content addressing, gossip propagation, swarm resilience — are some of the most battle-tested engineering on the internet. Agora is built on those ideas. What we didn't take: the speculation.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon">🧬</div>
-        <h3>Content Addressing</h3>
-        <p>Every post is identified by its SHA-256 hash — the same principle behind torrent piece verification. Same content = same ID, anywhere in the network. No database. No central authority assigning identifiers. The data is the address.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔄</div>
-        <h3>Gossip Protocol</h3>
-        <p>When a node receives a new object, it forwards to all peers. Objects ripple through the mesh like files through a torrent swarm. No coordinator. No bottleneck. Just propagation — the same protocol that made file sharing unkillable.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🛡️</div>
-        <h3>Swarm Resilience</h3>
-        <p>Kill a relay. Kill ten relays. The network keeps working because every browser has a copy and can talk directly to other browsers. This is the same architecture that made torrents survive two decades of legal attacks. It works because there's nothing to shut down.</p>
-      </div>
-    </div>
-    <div class="no-casino reveal" style="margin-top:40px; text-align:center; max-width:640px; margin-left:auto; margin-right:auto;">
-      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">The crypto industry took this same P2P technology and strapped a financial instrument to it. Tokens, mining, staking, airdrops — layers of speculation on top of engineering that already worked.</p>
-      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">We took the engineering and left the casino.</p>
-      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8;">No tokens. No mining. No "invest in the future of social media." The value of this network is the conversation happening on it — not a number on an exchange.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Open Source -->
+<!-- 7. Open Source -->
 <section id="source">
   <div class="container" style="text-align:center; max-width:640px;">
     <div class="section-eyebrow reveal">Open Source</div>
@@ -475,8 +475,8 @@ footer a:hover { color: var(--accent); }
 <!-- CTA -->
 <section class="cta-section section-dark">
   <div class="container">
-    <h2 class="reveal">The conversation doesn't<br>belong to <span class="accent">anyone.</span></h2>
-    <p class="reveal">No sign-up. No credit card. No terms of service you'll regret agreeing to.<br>Open source. Open protocol. Open door.</p>
+    <h2 class="reveal">The network is live.<br>The code is open.<br><span class="accent">The door is open.</span></h2>
+    <p class="reveal">No sign-up. No credit card. No terms of service you'll regret agreeing to.</p>
     <div class="cta-actions reveal">
       <a href="https://app.agorap2p.com" class="btn-primary btn-xl">Enter the Agora &rarr;</a>
       <a href="https://github.com/vortex-303/agora" class="btn-secondary">Read the Code</a>
