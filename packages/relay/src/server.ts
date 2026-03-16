@@ -292,9 +292,11 @@ export class RelayServer {
       console.log(`[Sync] Peer ${client.id} subscribed for sync`);
       // Send all stored objects
       const all = this.store.match([{}]);
+      console.log(`[Sync] Sending ${all.length} stored objects to ${client.id}`);
       for (const obj of all) {
         this.send(client.ws, { action: 'relay_sync_object', object: obj });
       }
+      this.send(client.ws, { action: 'relay_sync_ready', count: all.length });
     }
   }
 
