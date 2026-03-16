@@ -47,6 +47,9 @@ export class FeedManager {
     await this.cache.init();
     await this.outbox.init();
 
+    // Give gossip access to cache for pull-sync
+    this.gossip.setCache(this.cache);
+
     // Relay events → ingest + cache
     this.relay.onEvent(async (_subId, obj) => {
       this.gossip.markSeen(obj.id); // don't re-gossip relay objects
@@ -123,6 +126,14 @@ export class FeedManager {
 
   getAuthorState(author: string): { seq: number; lastId?: string } {
     return this.authorSeq.get(author) || { seq: 0 };
+  }
+
+  getNetworkStats() {
+    const gossipStats = this.gossip.getStats();
+    return {
+      cachedObjects: this.seen.size,
+      ...gossipStats,
+    };
   }
 
   async publish(obj: SignedObject): Promise<void> {

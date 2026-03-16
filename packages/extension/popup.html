@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 280px; font-family: 'Inter', -apple-system, sans-serif; background: #07070a; color: #f0f0f0; padding: 16px; }
+.header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.logo { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.03em; }
+.logo span { color: #f97316; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 500; }
+.badge-on { background: rgba(74,222,128,0.1); color: #4ade80; }
+.badge-off { background: rgba(239,68,68,0.1); color: #f87171; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.stat { background: #0e0e12; border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 10px; }
+.stat .value { font-size: 1.2rem; font-weight: 700; color: #f97316; font-family: 'JetBrains Mono', monospace; }
+.stat .label { font-size: 0.65rem; color: #606068; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+.open-btn { display: block; width: 100%; background: #f97316; color: #000; border: none; border-radius: 8px; padding: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+.open-btn:hover { background: #fb923c; }
+.footer { margin-top: 12px; text-align: center; font-size: 0.65rem; color: #606068; }
+.footer a { color: #606068; text-decoration: none; }
+.footer a:hover { color: #f97316; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">agora<span>.</span> node</div>
+  <div class="badge" id="status"><span class="dot"></span> <span id="status-text">connecting</span></div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="value" id="objects">-</div>
+    <div class="label">Objects Stored</div>
+  </div>
+  <div class="stat">
+    <div class="value" id="relays">-</div>
+    <div class="label">Relays</div>
+  </div>
+</div>
+
+<a href="https://app.agorap2p.com" target="_blank" class="open-btn">Open Agora</a>
+
+<div class="footer">
+  <a href="https://agorap2p.com" target="_blank">agorap2p.com</a> · <a href="https://github.com/vortex-303/agora" target="_blank">GitHub</a>
+</div>
+
+<script>
+chrome.storage.local.get('agora_stats', (data) => {
+  const stats = data.agora_stats;
+  if (!stats) return;
+
+  document.getElementById('objects').textContent = stats.objectCount.toLocaleString();
+  document.getElementById('relays').textContent = `${stats.connectedRelays}/${stats.totalRelays}`;
+
+  const badge = document.getElementById('status');
+  const text = document.getElementById('status-text');
+  if (stats.connectedRelays > 0) {
+    badge.className = 'badge badge-on';
+    text.textContent = 'live';
+  } else {
+    badge.className = 'badge badge-off';
+    text.textContent = 'offline';
+  }
+});
+</script>
+</body>
+</html>

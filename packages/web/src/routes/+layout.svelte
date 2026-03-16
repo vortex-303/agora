@@ -100,6 +100,16 @@
 	}
 
 	let unreadDMs = $state(0);
+	let networkStats = $state<{ cachedObjects: number; connectedPeers: number; objectsServed: number; objectsReceived: number } | null>(null);
+
+	// Update network stats every 5s
+	onMount(() => {
+		const statsInterval = setInterval(() => {
+			const fm = appState.feedManager;
+			if (fm) networkStats = fm.getNetworkStats();
+		}, 5000);
+		return () => clearInterval(statsInterval);
+	});
 	$effect(() => {
 		const dm = appState.dmManager;
 		if (dm) {
@@ -208,6 +218,18 @@
 	<main>
 		{@render children()}
 	</main>
+	{#if identityState.identity && networkStats}
+		<div class="contribution-bar">
+			<span class="contrib-dot"></span>
+			<span>Contributing {networkStats.cachedObjects} objects</span>
+			<span class="contrib-sep">·</span>
+			<span>{networkStats.connectedPeers} peers</span>
+			{#if networkStats.objectsServed > 0}
+				<span class="contrib-sep">·</span>
+				<span>{networkStats.objectsServed} served</span>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -339,6 +361,18 @@
 	}
 	.menu-link:hover { color: var(--accent); }
 	main { min-height: 70vh; }
+	.contribution-bar {
+		display: flex; align-items: center; justify-content: center; gap: 6px;
+		padding: 8px 0; margin-top: 20px;
+		font-size: 0.7rem; color: var(--text-tertiary);
+		border-top: 1px solid rgba(255,255,255,0.03);
+	}
+	.contrib-dot {
+		width: 5px; height: 5px; border-radius: 50%;
+		background: var(--accent); opacity: 0.6;
+		animation: pulse-dot 3s infinite;
+	}
+	.contrib-sep { opacity: 0.3; }
 
 	/* Mobile breakpoint */
 	@media (max-width: 640px) {
