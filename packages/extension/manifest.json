@@ -1,20 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Agora P2P",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Decentralized social network node. Strengthens the Agora network by storing and serving objects in the background.",
   "permissions": [
     "storage",
-    "alarms",
-    "notifications"
+    "alarms"
   ],
   "host_permissions": [
-    "wss://agora-relay.fly.dev/*",
-    "wss://agora-relay-eu.fly.dev/*"
+    "https://agora-relay.fly.dev/*",
+    "https://agora-relay-eu.fly.dev/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup.html",
