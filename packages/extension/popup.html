@@ -16,6 +16,7 @@ body { width: 280px; font-family: 'Inter', -apple-system, sans-serif; background
 .stat { background: #0e0e12; border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 10px; }
 .stat .value { font-size: 1.2rem; font-weight: 700; color: #f97316; font-family: 'JetBrains Mono', monospace; }
 .stat .label { font-size: 0.65rem; color: #606068; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+.info { font-size: 0.7rem; color: #606068; margin-bottom: 12px; line-height: 1.5; }
 .open-btn { display: block; width: 100%; background: #f97316; color: #000; border: none; border-radius: 8px; padding: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
 .open-btn:hover { background: #fb923c; }
 .footer { margin-top: 12px; text-align: center; font-size: 0.65rem; color: #606068; }
@@ -26,19 +27,29 @@ body { width: 280px; font-family: 'Inter', -apple-system, sans-serif; background
 <body>
 <div class="header">
   <div class="logo">agora<span>.</span> node</div>
-  <div class="badge" id="status"><span class="dot"></span> <span id="status-text">connecting</span></div>
+  <div class="badge" id="status"><span class="dot"></span> <span id="status-text">checking</span></div>
 </div>
 
 <div class="stats">
   <div class="stat">
-    <div class="value" id="objects">-</div>
-    <div class="label">Objects Stored</div>
+    <div class="value" id="local">-</div>
+    <div class="label">Local Cache</div>
   </div>
   <div class="stat">
     <div class="value" id="relays">-</div>
     <div class="label">Relays</div>
   </div>
+  <div class="stat">
+    <div class="value" id="network">-</div>
+    <div class="label">Network Objects</div>
+  </div>
+  <div class="stat">
+    <div class="value" id="updated">-</div>
+    <div class="label">Last Sync</div>
+  </div>
 </div>
+
+<p class="info">Your browser stores Agora objects locally, adding redundancy to the network. Data persists even when the app tab is closed.</p>
 
 <a href="https://app.agorap2p.com" target="_blank" class="open-btn">Open Agora</a>
 
@@ -47,12 +58,22 @@ body { width: 280px; font-family: 'Inter', -apple-system, sans-serif; background
 </div>
 
 <script>
+function formatAge(ms) {
+  if (!ms) return '-';
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  return Math.floor(s/3600) + 'h ago';
+}
+
 chrome.storage.local.get('agora_stats', (data) => {
   const stats = data.agora_stats;
   if (!stats) return;
 
-  document.getElementById('objects').textContent = stats.objectCount.toLocaleString();
+  document.getElementById('local').textContent = (stats.objectCount || 0).toLocaleString();
   document.getElementById('relays').textContent = `${stats.connectedRelays}/${stats.totalRelays}`;
+  document.getElementById('network').textContent = (stats.relayObjects || 0).toLocaleString();
+  document.getElementById('updated').textContent = formatAge(stats.updatedAt);
 
   const badge = document.getElementById('status');
   const text = document.getElementById('status-text');
