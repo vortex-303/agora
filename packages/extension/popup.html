@@ -4,113 +4,39 @@
 <meta charset="UTF-8">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { width: 280px; font-family: 'Inter', -apple-system, sans-serif; background: #07070a; color: #f0f0f0; padding: 16px; }
+body { width: 280px; font-family: -apple-system, sans-serif; background: #07070a; color: #f0f0f0; padding: 16px; }
 .header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.logo { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.03em; }
+.logo { font-size: 1.1rem; font-weight: 800; }
 .logo span { color: #f97316; }
-.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 500; }
-.badge-on { background: rgba(74,222,128,0.1); color: #4ade80; }
-.badge-off { background: rgba(239,68,68,0.1); color: #f87171; }
-.dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.badge { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; }
+.on { background: rgba(74,222,128,0.1); color: #4ade80; }
+.off { background: rgba(239,68,68,0.1); color: #f87171; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
 .stat { background: #0e0e12; border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 10px; }
-.stat .value { font-size: 1.2rem; font-weight: 700; color: #f97316; font-family: 'JetBrains Mono', monospace; }
-.stat .label { font-size: 0.65rem; color: #606068; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+.val { font-size: 1.2rem; font-weight: 700; color: #f97316; }
+.lbl { font-size: 0.65rem; color: #606068; margin-top: 2px; text-transform: uppercase; }
 .info { font-size: 0.7rem; color: #606068; margin-bottom: 12px; line-height: 1.5; }
-.open-btn { display: block; width: 100%; background: #f97316; color: #000; border: none; border-radius: 8px; padding: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
-.open-btn:hover { background: #fb923c; }
-.footer { margin-top: 12px; text-align: center; font-size: 0.65rem; color: #606068; }
-.footer a { color: #606068; text-decoration: none; }
-.footer a:hover { color: #f97316; }
+a.btn { display: block; background: #f97316; color: #000; border-radius: 8px; padding: 10px; text-align: center; text-decoration: none; font-weight: 600; }
+.foot { margin-top: 12px; text-align: center; font-size: 0.6rem; color: #606068; }
+.foot a { color: #606068; text-decoration: none; }
 </style>
 </head>
 <body>
+
 <div class="header">
   <div class="logo">agora<span>.</span> node</div>
-  <div class="badge" id="status"><span class="dot"></span> <span id="status-text">checking</span></div>
+  <div class="badge off" id="badge">loading</div>
 </div>
 
 <div class="stats">
-  <div class="stat">
-    <div class="value" id="local">-</div>
-    <div class="label">Local Cache</div>
-  </div>
-  <div class="stat">
-    <div class="value" id="relays">-</div>
-    <div class="label">Relays</div>
-  </div>
-  <div class="stat">
-    <div class="value" id="network">-</div>
-    <div class="label">Network Objects</div>
-  </div>
-  <div class="stat">
-    <div class="value" id="updated">-</div>
-    <div class="label">Last Sync</div>
-  </div>
+  <div class="stat"><div class="val" id="v1">...</div><div class="lbl">Network Objects</div></div>
+  <div class="stat"><div class="val" id="v2">...</div><div class="lbl">Relays</div></div>
 </div>
 
-<p class="info">Your browser stores Agora objects locally, adding redundancy to the network. Data persists even when the app tab is closed.</p>
+<p class="info">Your browser adds redundancy to the Agora network. The background worker syncs with relays even when the app tab is closed.</p>
+<a class="btn" href="https://app.agorap2p.com" target="_blank">Open Agora</a>
+<div class="foot"><a href="https://agorap2p.com" target="_blank">agorap2p.com</a></div>
 
-<a href="https://app.agorap2p.com" target="_blank" class="open-btn">Open Agora</a>
-
-<div class="footer">
-  <a href="https://agorap2p.com" target="_blank">agorap2p.com</a> · <a href="https://github.com/vortex-303/agora" target="_blank">GitHub</a>
-</div>
-
-<script>
-function formatAge(ms) {
-  if (!ms) return '-';
-  const s = Math.floor((Date.now() - ms) / 1000);
-  if (s < 60) return s + 's ago';
-  if (s < 3600) return Math.floor(s/60) + 'm ago';
-  return Math.floor(s/3600) + 'h ago';
-}
-
-function render(stats) {
-  if (!stats) return;
-  document.getElementById('local').textContent = (stats.objectCount || 0).toLocaleString();
-  document.getElementById('relays').textContent = `${stats.connectedRelays || 0}/${stats.totalRelays || 2}`;
-  document.getElementById('network').textContent = (stats.relayObjects || 0).toLocaleString();
-  document.getElementById('updated').textContent = formatAge(stats.updatedAt);
-
-  const badge = document.getElementById('status');
-  const text = document.getElementById('status-text');
-  if (stats.connectedRelays > 0) {
-    badge.className = 'badge badge-on';
-    text.textContent = 'live';
-  } else {
-    badge.className = 'badge badge-off';
-    text.textContent = 'offline';
-  }
-}
-
-// Try storage first
-chrome.storage.local.get('agora_stats', (data) => {
-  if (data && data.agora_stats) render(data.agora_stats);
-});
-
-// Also ask background directly
-try {
-  chrome.runtime.sendMessage({ action: 'get_stats' }, (response) => {
-    if (response) render(response);
-  });
-} catch {}
-
-// Also fetch relay health directly from popup
-Promise.all([
-  fetch('https://agora-relay.fly.dev/health').then(r => r.json()).catch(() => null),
-  fetch('https://agora-relay-eu.fly.dev/health').then(r => r.json()).catch(() => null),
-]).then(([us, eu]) => {
-  const connected = (us ? 1 : 0) + (eu ? 1 : 0);
-  const objects = Math.max(us?.objects || 0, eu?.objects || 0);
-  render({
-    objectCount: objects,
-    relayObjects: objects,
-    connectedRelays: connected,
-    totalRelays: 2,
-    updatedAt: Date.now(),
-  });
-});
-</script>
+<script src="popup.js"></script>
 </body>
 </html>
