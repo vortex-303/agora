@@ -66,12 +66,10 @@ function formatAge(ms) {
   return Math.floor(s/3600) + 'h ago';
 }
 
-chrome.storage.local.get('agora_stats', (data) => {
-  const stats = data.agora_stats;
+function render(stats) {
   if (!stats) return;
-
   document.getElementById('local').textContent = (stats.objectCount || 0).toLocaleString();
-  document.getElementById('relays').textContent = `${stats.connectedRelays}/${stats.totalRelays}`;
+  document.getElementById('relays').textContent = `${stats.connectedRelays || 0}/${stats.totalRelays || 2}`;
   document.getElementById('network').textContent = (stats.relayObjects || 0).toLocaleString();
   document.getElementById('updated').textContent = formatAge(stats.updatedAt);
 
@@ -84,6 +82,34 @@ chrome.storage.local.get('agora_stats', (data) => {
     badge.className = 'badge badge-off';
     text.textContent = 'offline';
   }
+}
+
+// Try storage first
+chrome.storage.local.get('agora_stats', (data) => {
+  if (data && data.agora_stats) render(data.agora_stats);
+});
+
+// Also ask background directly
+try {
+  chrome.runtime.sendMessage({ action: 'get_stats' }, (response) => {
+    if (response) render(response);
+  });
+} catch {}
+
+// Also fetch relay health directly from popup
+Promise.all([
+  fetch('https://agora-relay.fly.dev/health').then(r => r.json()).catch(() => null),
+  fetch('https://agora-relay-eu.fly.dev/health').then(r => r.json()).catch(() => null),
+]).then(([us, eu]) => {
+  const connected = (us ? 1 : 0) + (eu ? 1 : 0);
+  const objects = Math.max(us?.objects || 0, eu?.objects || 0);
+  render({
+    objectCount: objects,
+    relayObjects: objects,
+    connectedRelays: connected,
+    totalRelays: 2,
+    updatedAt: Date.now(),
+  });
 });
 </script>
 </body>
