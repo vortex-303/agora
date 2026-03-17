@@ -127,13 +127,13 @@
 </script>
 
 <svelte:head>
-	<title>Agora</title>
+	<title>Riot</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="manifest" href="/manifest.json" />
 	<meta name="theme-color" content="#f97316" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-	<meta name="apple-mobile-web-app-title" content="Agora" />
+	<meta name="apple-mobile-web-app-title" content="Riot" />
 	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
@@ -149,7 +149,7 @@
 
 <div class="app" onclick={handleClickOutside}>
 	<nav>
-		<a href="/" class="logo">agora<span class="logo-dot">.</span></a>
+		<a href="/" class="logo">riot<span class="logo-dot">.</span></a>
 		{#if identityState.identity}
 			{@const path = $page.url.pathname}
 			{@const activePage = NAV_ITEMS.find(n => n.match(path)) || NAV_ITEMS[0]}

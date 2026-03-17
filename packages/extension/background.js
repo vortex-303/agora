@@ -1,5 +1,5 @@
 /**
- * Agora Extension — Background Service Worker
+ * Riot Extension — Background Service Worker
  * Uses fetch polling since MV3 service workers don't support WebSocket reliably.
  */
 
@@ -142,5 +142,5 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // --- Init ---
-console.log('[Agora] Extension starting — polling mode');
+console.log('[Riot] Extension starting — polling mode');
 syncFromRelays();

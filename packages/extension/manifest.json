@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Agora P2P",
+  "name": "Riot P2P",
   "version": "0.1.1",
-  "description": "Decentralized social network node. Strengthens the Agora network by storing and serving objects in the background.",
+  "description": "Decentralized social network node. Strengthens the Riot network by storing and serving objects in the background.",
   "permissions": [
     "storage",
     "alarms"

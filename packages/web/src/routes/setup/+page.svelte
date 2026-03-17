@@ -116,7 +116,7 @@
 				{/each}
 			</div>
 		</div>
-		<button class="btn-big" onclick={finish}>Enter the Agora</button>
+		<button class="btn-big" onclick={finish}>Enter the Riot</button>
 	{:else}
 		<h2>Restore Identity</h2>
 		<p class="desc">Enter your 12-word recovery phrase.</p>

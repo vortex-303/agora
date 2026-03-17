@@ -1,7 +1,7 @@
 {
-  "name": "Agora",
-  "short_name": "Agora",
-  "description": "Decentralized P2P social platform",
+  "name": "Riot",
+  "short_name": "Riot",
+  "description": "Decentralized P2P encrypted network",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#07070a",

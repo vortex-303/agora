@@ -181,7 +181,7 @@
 	{/if}
 
 	<div class="lobby-footer">
-		<p>Powered by <a href="https://agorap2p.com">Agora</a> — decentralized, encrypted, yours.</p>
+		<p>Powered by <a href="https://riotp2p.com">Riot</a> — decentralized, encrypted, yours.</p>
 	</div>
 </div>
 
