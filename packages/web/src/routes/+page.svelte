@@ -1,62 +1,105 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createObject, type PostContent } from '@agora/core';
-	import { identityState, feedState, addToFeed, setFeed, appState, reactiveState } from '$lib/stores.svelte.js';
-	import { TOPICS } from '$lib/topics.js';
+	import { goto } from '$app/navigation';
+	import { createObject, type PostContent, type SignedObject } from '@agora/core';
+	import { identityState, feedState, addToFeed, appState } from '$lib/stores.svelte.js';
 	import Markdown from '$lib/Markdown.svelte';
 
-	let composeText = $state('');
-	let composeCommunity = $state('general');
-	let feedMode = $state<'main' | 'personal'>('main');
 	let loaded = $state(false);
-	let composeImage = $state<string | null>(null);
+	let pinText = $state('');
+	let pinImage = $state<string | null>(null);
 	let fileInput: HTMLInputElement;
-	let showCommunityPicker = $state(false);
+	let shareFileInput: HTMLInputElement;
+	let copied = $state(false);
+	let qrVisible = $state(false);
 
 	onMount(() => {
+		if (!identityState.identity) return;
 		const check = setInterval(async () => {
 			const fm = appState.feedManager;
-			const mod = appState.moderation;
 			if (fm) {
 				clearInterval(check);
-				if (mod && mod.getFollowedCommunities().length > 0) feedMode = 'personal';
-				const cached = await fm.loadCachedFeed();
-				if (cached.length > 0) setFeed(cached);
-				fm.onObject((obj) => { if (obj.body.type === 'post') addToFeed(obj); });
-				await fm.subscribe('feed', [{ types: ['post'] }]);
+				const myKey = identityState.identity!.publicKeyBase64;
+				await fm.subscribe('my-lobby', [{ authors: [myKey] }]);
+				await fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
 				loaded = true;
 			}
 		}, 50);
 		return () => clearInterval(check);
 	});
 
-	function post() {
+	let myKey = $derived(identityState.identity?.publicKeyBase64 || '');
+	let profile = $derived(appState.profileManager?.getProfile(myKey));
+	let displayName = $derived(profile?.name || myKey.slice(0, 12) + '...');
+	let location = $derived(appState.profileManager?.locationString(myKey));
+	let lobbyUrl = $derived(typeof window !== 'undefined' ? `${window.location.origin}/p/${encodeURIComponent(myKey)}` : '');
+
+	// Pins: my latest posts (no replies, no inbox messages), max 5
+	let pins = $derived(
+		feedState.objects
+			.filter(o => o.body.author === myKey && o.body.type === 'post' &&
+				!(o.body.content as PostContent).reply &&
+				!(o.body.content as PostContent).topic?.startsWith('inbox:'))
+			.sort((a, b) => b.body.timestamp - a.body.timestamp)
+			.slice(0, 5)
+	);
+
+	// Shared files: my posts with images
+	let sharedFiles = $derived(
+		feedState.objects
+			.filter(o => o.body.author === myKey && o.body.type === 'post' && (o.body.content as PostContent).image)
+			.sort((a, b) => b.body.timestamp - a.body.timestamp)
+			.slice(0, 10)
+	);
+
+	// Inbox messages from visitors
+	let inboxMessages = $derived(
+		feedState.objects
+			.filter(o => o.body.type === 'post' && (o.body.content as PostContent).topic === `inbox:${myKey}` && o.body.author !== myKey)
+			.sort((a, b) => b.body.timestamp - a.body.timestamp)
+			.slice(0, 20)
+	);
+
+	function addPin() {
 		const identity = identityState.identity;
 		const fm = appState.feedManager;
-		if (!identity || !fm || (!composeText.trim() && !composeImage)) return;
+		if (!identity || !fm || (!pinText.trim() && !pinImage)) return;
 		const state = fm.getAuthorState(identity.publicKeyBase64);
-		const content: PostContent = { text: composeText.trim(), topic: composeCommunity };
-		if (composeImage) content.image = composeImage;
+		const content: PostContent = { text: pinText.trim() };
+		if (pinImage) content.image = pinImage;
 		const obj = createObject({
 			author: identity.publicKeyBase64, privateKey: identity.privateKey,
 			type: 'post', content, seq: state.seq + 1, prev: state.lastId,
 		});
 		addToFeed(obj);
 		fm.publish(obj);
-		composeText = '';
-		composeImage = null;
+		pinText = '';
+		pinImage = null;
 	}
 
-	function handleFile(e: Event) {
+	function shareFile(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
-		if (!file || !file.type.startsWith('image/')) return;
-		if (file.size > 500_000) { alert('Image must be under 500KB'); return; }
+		if (!file) return;
+		if (file.size > 500_000) { alert('File must be under 500KB'); return; }
 		const reader = new FileReader();
-		reader.onload = () => { composeImage = reader.result as string; };
+		reader.onload = () => {
+			const identity = identityState.identity;
+			const fm = appState.feedManager;
+			if (!identity || !fm) return;
+			const state = fm.getAuthorState(identity.publicKeyBase64);
+			const obj = createObject({
+				author: identity.publicKeyBase64, privateKey: identity.privateKey,
+				type: 'post',
+				content: { text: file.name, image: reader.result as string } as PostContent,
+				seq: state.seq + 1, prev: state.lastId,
+			});
+			addToFeed(obj);
+			fm.publish(obj);
+		};
 		reader.readAsDataURL(file);
 	}
 
-	function handlePaste(e: ClipboardEvent) {
+	function handlePinPaste(e: ClipboardEvent) {
 		const items = e.clipboardData?.items;
 		if (!items) return;
 		for (const item of items) {
@@ -65,15 +108,21 @@
 				const file = item.getAsFile();
 				if (!file || file.size > 500_000) return;
 				const reader = new FileReader();
-				reader.onload = () => { composeImage = reader.result as string; };
+				reader.onload = () => { pinImage = reader.result as string; };
 				reader.readAsDataURL(file);
 				return;
 			}
 		}
 	}
 
-	function displayName(key: string): string {
-		return appState.profileManager?.displayName(key) || key.slice(0, 8) + '...';
+	function copyLink() {
+		navigator.clipboard.writeText(lobbyUrl);
+		copied = true;
+		setTimeout(() => { copied = false; }, 2000);
+	}
+
+	function senderName(key: string): string {
+		return appState.profileManager?.displayName(key) || key.slice(0, 10) + '...';
 	}
 
 	function formatTime(ts: number): string {
@@ -84,302 +133,212 @@
 		return new Date(ts).toLocaleDateString();
 	}
 
-	// All known communities: seeded + user-created (from posts)
-	let allCommunities = $derived(() => {
-		const seen = new Set(TOPICS.map(t => t.id));
-		const extra: string[] = [];
-		for (const obj of feedState.objects) {
-			if (obj.body.type === 'post') {
-				const t = (obj.body.content as PostContent).topic;
-				if (t && !seen.has(t)) { seen.add(t); extra.push(t); }
-			}
-		}
-		return [
-			...TOPICS.map(t => t.id),
-			...extra,
-		];
-	});
-
-	let followedCommunities = $derived(appState.moderation?.getFollowedCommunities() || []);
-
-	// Personal feed: posts from followed communities, sorted by time
-	let personalPosts = $derived(
-		feedState.objects
-			.filter((o) => {
-				if (o.body.type !== 'post') return false;
-				const c = o.body.content as PostContent;
-				if (c.reply) return false;
-				if (!appState.moderation?.shouldShow(o)) return false;
-				return c.topic ? followedCommunities.includes(c.topic) : false;
-			})
-			.sort((a, b) => b.body.timestamp - a.body.timestamp)
-	);
-
-	// Force reactivity on vote/moderation changes
-	let _tick = $derived(reactiveState.tick);
-
-	// Main feed: ranked by engagement + recency algo
-	function rankScore(obj: typeof feedState.objects[0]): number {
-		const votes = appState.voteManager?.getVotes(obj.id) || { score: 0 };
-		const replies = replyCount(obj.id);
-		const ageHours = (Date.now() - obj.body.timestamp) / 3_600_000;
-		const voteSignal = Math.max(votes.score, 0) + 1; // floor at 1
-		const replyBoost = 1 + replies * 0.3;
-		const timePenalty = Math.pow((ageHours / 6) + 1, 1.5);
-		return (voteSignal * replyBoost) / timePenalty;
-	}
-
-	let mainFeedPosts = $derived(
-		((_tick), feedState.objects
-			.filter((o) => {
-				if (o.body.type !== 'post') return false;
-				const c = o.body.content as PostContent;
-				if (c.reply) return false;
-				if (!appState.moderation?.shouldShow(o)) return false;
-				return true;
-			})
-			.sort((a, b) => rankScore(b) - rankScore(a)))
-	);
-
-	let displayPosts = $derived(feedMode === 'personal' ? personalPosts : mainFeedPosts);
-
-	function replyCount(postId: string): number {
-		return feedState.objects.filter((o) =>
-			o.body.type === 'post' && (o.body.content as PostContent).reply === postId
-		).length;
-	}
-
-	async function vote(id: string, dir: 'upvote' | 'downvote') {
-		await appState.voteManager?.vote(id, dir);
-	}
-
-	async function deletePost(id: string) {
+	async function deletePin(id: string) {
 		await appState.moderation?.deletePost(id);
 	}
-
-	function selectCommunity(name: string) {
-		composeCommunity = name;
-		showCommunityPicker = false;
-	}
-
-	let isMyPost = (author: string) => author === identityState.identity?.publicKeyBase64;
 </script>
 
-{#if identityState.identity}
-	<div class="mode-tabs">
-		<button class="mode-tab" class:active={feedMode === 'main'} onclick={() => { feedMode = 'main'; }}>
-			Main Feed
-		</button>
-		<button class="mode-tab" class:active={feedMode === 'personal'} onclick={() => { feedMode = 'personal'; }}>
-			My Feed
-			{#if followedCommunities.length > 0}
-				<span class="follow-count">{followedCommunities.length}</span>
-			{/if}
-		</button>
+{#if identityState.identity && loaded}
+	<!-- Profile card -->
+	<div class="profile-card card">
+		<div class="profile-top">
+			<div class="avatar">{myKey.slice(0, 2)}</div>
+			<div class="profile-info">
+				<h1 class="name">{displayName}</h1>
+				{#if location}
+					<div class="loc">{location}</div>
+				{/if}
+				<div class="status-row">
+					<span class="online-dot"></span>
+					<span class="online-text">online</span>
+				</div>
+			</div>
+			<a href="/settings" class="edit-btn">Edit</a>
+		</div>
+		<div class="link-row">
+			<code class="lobby-url mono">{lobbyUrl}</code>
+			<button class="btn btn-sm" onclick={copyLink}>{copied ? 'Copied!' : 'Copy Link'}</button>
+		</div>
+		<p class="link-hint">Share this link. Anyone can view your lobby and message you.</p>
 	</div>
 
-	{#if feedMode === 'personal' && followedCommunities.length === 0}
-		<div class="empty-state card">
-			<p>Your feed is empty.</p>
-			<p class="sub">Follow some <a href="/communities">communities</a> and their posts will appear here.</p>
+	<!-- Pins -->
+	<div class="section">
+		<div class="section-header">
+			<h3 class="section-label">Pinned <span class="count">{pins.length}/5</span></h3>
 		</div>
-	{/if}
-
-	<div class="compose card">
-		<textarea class="input" bind:value={composeText}
-			placeholder="What's on your mind?" rows="2"
-			onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) post(); }}
-			onpaste={handlePaste}
-		></textarea>
-		{#if composeImage}
-			<div class="compose-preview">
-				<img src={composeImage} alt="preview" />
-				<button class="remove-img" onclick={() => { composeImage = null; }}>✕</button>
+		{#if pins.length < 5}
+			<div class="add-pin card">
+				<textarea class="input" bind:value={pinText} placeholder="Pin a message, link, or idea..."
+					rows="2" onpaste={handlePinPaste}
+					onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) addPin(); }}
+				></textarea>
+				{#if pinImage}
+					<div class="pin-preview">
+						<img src={pinImage} alt="" />
+						<button class="remove-img" onclick={() => { pinImage = null; }}>✕</button>
+					</div>
+				{/if}
+				<div class="add-bar">
+					<button class="img-btn" onclick={() => fileInput.click()}>🖼</button>
+					<input bind:this={fileInput} type="file" accept="image/*" onchange={(e) => {
+						const f = (e.target as HTMLInputElement).files?.[0];
+						if (f && f.size < 500_000) { const r = new FileReader(); r.onload = () => { pinImage = r.result as string; }; r.readAsDataURL(f); }
+					}} hidden />
+					<button class="btn btn-sm" onclick={addPin} disabled={!pinText.trim() && !pinImage}>Pin</button>
+				</div>
 			</div>
 		{/if}
-		<div class="compose-bar">
-			<div class="compose-left">
-				<div class="community-picker-wrap">
-					<button class="community-pick-btn" onclick={() => { showCommunityPicker = !showCommunityPicker; }}>
-						<span class="pick-label">#{composeCommunity}</span>
-						<span class="pick-caret">▾</span>
-					</button>
-					{#if showCommunityPicker}
-						<div class="community-dropdown">
-							{#each allCommunities() as name (name)}
-								<button class="community-opt" class:active={composeCommunity === name}
-									onclick={() => selectCommunity(name)}>
-									#{name}
-								</button>
-							{/each}
-							<a href="/communities" class="community-opt browse-link">Browse all →</a>
-						</div>
-					{/if}
-				</div>
-				<button class="img-btn" onclick={() => fileInput.click()} title="Add image">🖼</button>
-				<input bind:this={fileInput} type="file" accept="image/*" onchange={handleFile} hidden />
-			</div>
-			<button class="btn" onclick={post} disabled={!composeText.trim() && !composeImage}>Post</button>
-		</div>
-	</div>
-
-	<div class="feed">
-		{#each displayPosts as obj (obj.id)}
+		{#each pins as obj (obj.id)}
 			{@const content = obj.body.content as PostContent}
-			{@const replies = replyCount(obj.id)}
-			{@const votes = appState.voteManager?.getVotes(obj.id) || { up: 0, down: 0, score: 0, myVote: null }}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="post card" onclick={() => window.location.href = `/post/${encodeURIComponent(obj.id)}`}>
-				<div class="post-header">
-					<a href="/u/{encodeURIComponent(obj.body.author)}" class="author mono"
-						onclick={(e) => e.stopPropagation()}>{displayName(obj.body.author)}</a>
-					{#if content.topic}
-						<a href="/c/{content.topic}" class="community-tag" onclick={(e) => e.stopPropagation()}>#{content.topic}</a>
-					{/if}
-					<span class="time">{formatTime(obj.body.timestamp)}</span>
-				</div>
+			<div class="pin card">
 				{#if content.text}
-					<div class="post-text"><Markdown text={content.text} /></div>
+					<div class="pin-text"><Markdown text={content.text} /></div>
 				{/if}
 				{#if content.image}
-					<div class="post-image"><img src={content.image} alt="" /></div>
+					<div class="pin-image"><img src={content.image} alt="" /></div>
 				{/if}
-				<div class="post-footer" onclick={(e) => e.stopPropagation()}>
-					<div class="vote-group">
-						<button class="vote-btn" class:voted={votes.myVote === 'upvote'}
-							onclick={() => vote(obj.id, 'upvote')}>▲</button>
-						<span class="vote-score" class:positive={votes.score > 0} class:negative={votes.score < 0}>
-							{votes.score}
-						</span>
-						<button class="vote-btn" class:voted={votes.myVote === 'downvote'}
-							onclick={() => vote(obj.id, 'downvote')}>▼</button>
-					</div>
-					{#if replies > 0}
-						<span class="reply-count">{replies} {replies === 1 ? 'reply' : 'replies'}</span>
-					{/if}
-					{#if isMyPost(obj.body.author)}
-						<button class="delete-btn" onclick={() => deletePost(obj.id)}>Delete</button>
-					{/if}
+				<div class="pin-footer">
+					<span class="pin-time">{formatTime(obj.body.timestamp)}</span>
+					<button class="delete-btn" onclick={() => deletePin(obj.id)}>Remove</button>
 				</div>
 			</div>
 		{/each}
-		{#if displayPosts.length === 0 && loaded}
-			<div class="empty">
-				{#if feedMode === 'main'}
-					<p>The agora is quiet.</p>
-					<p class="sub">Post something to break the silence.</p>
-				{:else}
-					<p>No posts from your communities yet.</p>
-					<p class="sub">Follow more <a href="/communities">communities</a> or switch to Main Feed.</p>
-				{/if}
+	</div>
+
+	<!-- Shared files -->
+	<div class="section">
+		<div class="section-header">
+			<h3 class="section-label">Shared Files</h3>
+			<button class="btn btn-sm btn-secondary" onclick={() => shareFileInput.click()}>+ Share File</button>
+			<input bind:this={shareFileInput} type="file" onchange={shareFile} hidden />
+		</div>
+		{#if sharedFiles.length > 0}
+			<div class="files">
+				{#each sharedFiles as obj (obj.id)}
+					{@const content = obj.body.content as PostContent}
+					<div class="file-item card">
+						{#if content.image}
+							<img src={content.image} alt="" class="file-thumb" />
+						{/if}
+						<div class="file-info">
+							<span class="file-name">{content.text || 'File'}</span>
+							<span class="file-time">{formatTime(obj.body.timestamp)}</span>
+						</div>
+					</div>
+				{/each}
 			</div>
+		{:else}
+			<p class="empty-hint">No files shared yet. Files are visible to anyone who visits your lobby.</p>
 		{/if}
 	</div>
+
+	<!-- Inbox -->
+	<div class="section">
+		<h3 class="section-label">Lobby Inbox <span class="count">{inboxMessages.length}</span></h3>
+		{#if inboxMessages.length > 0}
+			<div class="inbox">
+				{#each inboxMessages as msg (msg.id)}
+					{@const content = msg.body.content as PostContent}
+					<a href="/dm/{encodeURIComponent(msg.body.author)}" class="inbox-msg card">
+						<div class="msg-top">
+							<span class="msg-sender mono">{senderName(msg.body.author)}</span>
+							<span class="msg-time">{formatTime(msg.body.timestamp)}</span>
+						</div>
+						<div class="msg-text">{content.text}</div>
+						<span class="msg-reply">Reply →</span>
+					</a>
+				{/each}
+			</div>
+		{:else}
+			<p class="empty-hint">No messages yet. Share your lobby link and people can message you.</p>
+		{/if}
+	</div>
+{:else if !identityState.identity}
+	<div class="loading"></div>
 {:else}
-	<div class="loading">Initializing...</div>
+	<div class="loading">Loading your lobby...</div>
 {/if}
 
 <style>
-	.mode-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
-	.mode-tab {
-		display: flex; align-items: center; gap: 6px;
-		background: none; border: none; padding: 8px 16px; border-radius: 8px;
-		color: var(--text-tertiary); font-size: 0.85rem; font-weight: 600;
-		cursor: pointer; transition: all 0.2s;
+	.profile-card { padding: 20px; margin-bottom: 20px; }
+	.profile-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+	.avatar {
+		width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+		background: var(--bg-raised); display: flex; align-items: center; justify-content: center;
+		font-family: var(--font-mono); font-size: 1.1rem; color: var(--accent);
+		border: 2px solid var(--accent-border);
 	}
-	.mode-tab:hover { color: var(--text-primary); }
-	.mode-tab.active { color: var(--accent); background: rgba(249,115,22,0.08); }
-	.follow-count {
-		background: var(--accent); color: #000; font-size: 0.6rem; font-weight: 700;
-		min-width: 16px; height: 16px; border-radius: 8px;
-		display: flex; align-items: center; justify-content: center; padding: 0 4px;
+	.profile-info { flex: 1; }
+	h1.name { font-size: 1.3rem; margin: 0 0 2px; letter-spacing: -0.02em; }
+	.loc { color: var(--text-tertiary); font-size: 0.8rem; }
+	.status-row { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+	.online-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse-dot 2s infinite; }
+	.online-text { color: #4ade80; font-size: 0.75rem; }
+	.edit-btn {
+		color: var(--text-tertiary); font-size: 0.8rem; text-decoration: none;
+		padding: 4px 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
+		transition: all 0.2s;
 	}
+	.edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+	.link-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+	.lobby-url {
+		flex: 1; font-size: 0.6rem; color: var(--accent); padding: 6px 8px;
+		background: var(--bg-input); border-radius: 4px;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	.btn-sm { padding: 5px 12px; font-size: 0.75rem; }
+	.btn-secondary { background: var(--bg-raised); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.06); }
+	.btn-secondary:hover { border-color: var(--accent); color: var(--accent); box-shadow: none; transform: none; }
+	.link-hint { color: var(--text-tertiary); font-size: 0.7rem; }
 
-	.empty-state { padding: 32px; text-align: center; margin-bottom: 16px; }
-	.empty-state p { margin: 4px 0; color: var(--text-secondary); }
-	.empty-state .sub { font-size: 0.85rem; color: var(--text-tertiary); }
+	.section { margin-bottom: 24px; }
+	.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+	.section-label {
+		color: var(--text-secondary); font-size: 0.75rem; font-weight: 600;
+		text-transform: uppercase; letter-spacing: 0.06em; margin: 0;
+	}
+	.count { color: var(--text-tertiary); font-weight: 400; }
 
-	.compose { margin-bottom: 16px; }
-	.compose textarea { resize: vertical; min-height: 50px; background: var(--bg-input); border-color: rgba(255,255,255,0.04); }
-	.compose-preview { position: relative; margin-top: 8px; display: inline-block; }
-	.compose-preview img { max-height: 100px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
+	.add-pin { padding: 12px; margin-bottom: 8px; }
+	.add-pin textarea { resize: none; min-height: 44px; background: var(--bg-input); font-size: 0.85rem; }
+	.pin-preview { position: relative; margin-top: 6px; display: inline-block; }
+	.pin-preview img { max-height: 80px; border-radius: 6px; }
 	.remove-img {
-		position: absolute; top: 4px; right: 4px;
-		background: rgba(0,0,0,0.7); color: #fff; border: none;
-		width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 0.7rem;
+		position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: #fff;
+		border: none; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; font-size: 0.6rem;
 		display: flex; align-items: center; justify-content: center;
 	}
-	.compose-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-	.compose-left { display: flex; align-items: center; gap: 8px; }
-	.img-btn { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: 0.5; transition: opacity 0.2s; }
+	.add-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+	.img-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; opacity: 0.5; }
 	.img-btn:hover { opacity: 1; }
 
-	/* Community picker dropdown */
-	.community-picker-wrap { position: relative; }
-	.community-pick-btn {
-		display: flex; align-items: center; gap: 4px;
-		background: var(--bg-input); border: 1px solid rgba(255,255,255,0.06);
-		border-radius: 6px; padding: 5px 10px; cursor: pointer;
-		color: var(--accent); font-size: 0.8rem; font-weight: 500; transition: all 0.2s;
-	}
-	.community-pick-btn:hover { border-color: var(--accent-border); }
-	.pick-caret { font-size: 0.6rem; color: var(--text-tertiary); }
-	.community-dropdown {
-		position: absolute; bottom: calc(100% + 6px); left: 0;
-		background: var(--bg-raised); border: 1px solid rgba(255,255,255,0.08);
-		border-radius: 10px; padding: 4px; z-index: 50; min-width: 160px;
-		max-height: 240px; overflow-y: auto;
-		box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-		animation: dropdown-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-	}
-	@keyframes dropdown-in {
-		from { opacity: 0; transform: translateY(4px) scale(0.95); }
-		to { opacity: 1; transform: translateY(0) scale(1); }
-	}
-	.community-opt {
-		display: block; width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
-		background: none; color: var(--text-secondary); font-size: 0.8rem;
-		cursor: pointer; text-align: left; transition: all 0.1s; text-decoration: none;
-	}
-	.community-opt:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
-	.community-opt.active { color: var(--accent); }
-	.browse-link { color: var(--text-tertiary); font-size: 0.75rem; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 4px; }
-
-	.feed { display: flex; flex-direction: column; gap: 8px; }
-	.post { padding: 14px 16px; cursor: pointer; transition: all 0.2s; }
-	.post:hover { border-color: var(--accent-border); }
-	.post-header { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; margin-bottom: 8px; }
-	.author { color: var(--accent); font-size: 0.8rem; font-weight: 500; }
-	.author:hover { color: var(--accent-hover); }
-	.community-tag { color: var(--text-tertiary); font-size: 0.75rem; }
-	.community-tag:hover { color: var(--accent); }
-	.time { color: var(--text-tertiary); margin-left: auto; font-size: 0.75rem; }
-	.post-text { line-height: 1.5; font-size: 0.9rem; }
-	.post-image { margin-top: 10px; }
-	.post-image img { max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
-	.post-footer { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
-
-	.vote-group { display: flex; align-items: center; gap: 4px; }
-	.vote-btn {
-		background: none; border: none; color: var(--text-tertiary); cursor: pointer;
-		font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; transition: all 0.15s;
-	}
-	.vote-btn:hover { color: var(--accent); background: rgba(249,115,22,0.08); }
-	.vote-btn.voted { color: var(--accent); }
-	.vote-score { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); min-width: 20px; text-align: center; }
-	.vote-score.positive { color: var(--accent); }
-	.vote-score.negative { color: #f87171; }
-
-	.reply-count { color: var(--text-secondary); font-size: 0.75rem; padding: 2px 8px; background: var(--bg-input); border-radius: 10px; }
-	.delete-btn {
-		margin-left: auto; background: none; border: none; color: var(--text-tertiary);
-		font-size: 0.7rem; cursor: pointer; padding: 2px 6px;
-	}
+	.pin { padding: 12px 14px; margin-bottom: 6px; }
+	.pin-text { line-height: 1.5; font-size: 0.9rem; }
+	.pin-image { margin-top: 6px; }
+	.pin-image img { max-width: 100%; max-height: 200px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+	.pin-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+	.pin-time { color: var(--text-tertiary); font-size: 0.7rem; }
+	.delete-btn { background: none; border: none; color: var(--text-tertiary); font-size: 0.7rem; cursor: pointer; }
 	.delete-btn:hover { color: #f87171; }
 
-	.empty { text-align: center; margin-top: 48px; color: var(--text-tertiary); }
-	.empty p { margin: 4px 0; }
-	.sub { font-size: 0.85rem; }
-	.loading { text-align: center; margin-top: 64px; color: var(--text-tertiary); }
+	.files { display: flex; flex-direction: column; gap: 6px; }
+	.file-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+	.file-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+	.file-info { flex: 1; min-width: 0; }
+	.file-name { font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.file-time { font-size: 0.7rem; color: var(--text-tertiary); }
+
+	.inbox { display: flex; flex-direction: column; gap: 6px; }
+	.inbox-msg { display: block; padding: 12px 14px; text-decoration: none; color: inherit; transition: all 0.2s; }
+	.inbox-msg:hover { border-color: var(--accent-border); }
+	.msg-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+	.msg-sender { color: var(--accent); font-size: 0.8rem; font-weight: 500; }
+	.msg-time { color: var(--text-tertiary); font-size: 0.7rem; }
+	.msg-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; }
+	.msg-reply { color: var(--accent); font-size: 0.75rem; margin-top: 6px; display: block; opacity: 0; transition: opacity 0.2s; }
+	.inbox-msg:hover .msg-reply { opacity: 1; }
+
+	.empty-hint { color: var(--text-tertiary); font-size: 0.8rem; padding: 16px 0; }
+	.loading { text-align: center; margin-top: 80px; color: var(--text-tertiary); }
 </style>
