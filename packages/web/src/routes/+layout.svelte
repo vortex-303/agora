@@ -20,11 +20,11 @@
 	let copied = $state(false);
 
 	const NAV_ITEMS = [
-		{ href: '/', label: 'Feed', icon: '◆', match: (p: string) => p === '/' || p.startsWith('/post') },
-		{ href: '/communities', label: 'Communities', icon: '⬡', match: (p: string) => p === '/communities' || p.startsWith('/c/') },
+		{ href: '/', label: 'Feed', icon: '◆', match: (p: string) => p === '/' || p.startsWith('/post') || p.startsWith('/c/') },
+		{ href: '/inbox', label: 'Inbox', icon: '◈', match: (p: string) => p === '/inbox' },
+		{ href: '/dm', label: 'DMs', icon: '◇', match: (p: string) => p.startsWith('/dm') },
 		{ href: '/network', label: 'Network', icon: '◎', match: (p: string) => p === '/network' },
 		{ href: '/search', label: 'Search', icon: '⌕', match: (p: string) => p === '/search' },
-		{ href: '/dm', label: 'Messages', icon: '◈', match: (p: string) => p.startsWith('/dm') },
 	];
 
 	function getRelayUrls(): string[] {
@@ -209,6 +209,7 @@
 						<button class="btn" onclick={copyAddress} style="width:100%">
 							{copied ? 'Copied!' : 'Copy Address'}
 						</button>
+						<a href="/p/{encodeURIComponent(identityState.identity.publicKeyBase64)}" class="menu-link" onclick={() => { showUserMenu = false; }}>My Lobby</a>
 						<a href="/settings" class="menu-link" onclick={() => { showUserMenu = false; }}>Settings</a>
 					</div>
 				{/if}

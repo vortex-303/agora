@@ -6,7 +6,6 @@ export type PoolStatus = 'disconnected' | 'partial' | 'connected';
 
 export const DEFAULT_RELAYS = [
   'wss://agora-relay.fly.dev',
-  'wss://agora-relay-eu.fly.dev',
 ];
 
 export class RelayPool {
