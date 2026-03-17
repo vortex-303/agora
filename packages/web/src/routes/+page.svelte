@@ -15,14 +15,15 @@
 
 	onMount(() => {
 		if (!identityState.identity) return;
+		// Show lobby immediately, subscribe in background
+		loaded = true;
 		const check = setInterval(async () => {
 			const fm = appState.feedManager;
 			if (fm) {
 				clearInterval(check);
 				const myKey = identityState.identity!.publicKeyBase64;
-				await fm.subscribe('my-lobby', [{ authors: [myKey] }]);
-				await fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
-				loaded = true;
+				fm.subscribe('my-lobby', [{ authors: [myKey] }]);
+				fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
 			}
 		}, 50);
 		return () => clearInterval(check);
