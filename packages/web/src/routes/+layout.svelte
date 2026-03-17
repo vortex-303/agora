@@ -128,11 +128,14 @@
 		<a href="/" class="logo">riot<span class="logo-dot">.</span></a>
 		{#if identityState.identity}
 			<div class="nav-right">
-				<a href="/dm" class="dm-btn" class:active={$page.url.pathname.startsWith('/dm')}>
+				<a href="/dm" class="nav-link" class:active={$page.url.pathname.startsWith('/dm')}>
 					Messages
 					{#if unreadDMs > 0}
 						<span class="nav-badge">{unreadDMs}</span>
 					{/if}
+				</a>
+				<a href="/network" class="nav-link" class:active={$page.url.pathname === '/network'}>
+					Network
 				</a>
 				<span class="badge {statusClass}">
 					<span class="dot"></span>
@@ -172,13 +175,13 @@
 	.logo:hover { color: var(--text-primary); }
 	.logo-dot { color: var(--accent); }
 	.nav-right { display: flex; align-items: center; gap: 10px; position: relative; }
-	.dm-btn {
+	.nav-link {
 		display: flex; align-items: center; gap: 6px;
 		padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 500;
 		color: var(--text-secondary); text-decoration: none; transition: all 0.2s;
 	}
-	.dm-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
-	.dm-btn.active { color: var(--accent); background: rgba(249,115,22,0.08); }
+	.nav-link:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+	.nav-link.active { color: var(--accent); background: rgba(249,115,22,0.08); }
 	.nav-badge {
 		background: var(--accent); color: #000; font-size: 0.6rem; font-weight: 700;
 		min-width: 16px; height: 16px; border-radius: 8px;

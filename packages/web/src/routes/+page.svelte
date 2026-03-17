@@ -14,14 +14,13 @@
 	let qrVisible = $state(false);
 
 	onMount(() => {
-		if (!identityState.identity) return;
-		// Show lobby immediately, subscribe in background
-		loaded = true;
 		const check = setInterval(async () => {
+			if (!identityState.identity) return; // wait for identity
+			loaded = true; // show lobby immediately
 			const fm = appState.feedManager;
 			if (fm) {
 				clearInterval(check);
-				const myKey = identityState.identity!.publicKeyBase64;
+				const myKey = identityState.identity.publicKeyBase64;
 				fm.subscribe('my-lobby', [{ authors: [myKey] }]);
 				fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
 			}
