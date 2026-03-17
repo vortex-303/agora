@@ -128,6 +128,9 @@
 		<a href="/" class="logo">riot<span class="logo-dot">.</span></a>
 		{#if identityState.identity}
 			<div class="nav-right">
+				<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>
+					Lobby
+				</a>
 				<a href="/dm" class="nav-link" class:active={$page.url.pathname.startsWith('/dm')}>
 					Messages
 					{#if unreadDMs > 0}
