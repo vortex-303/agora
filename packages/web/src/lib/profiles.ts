@@ -28,6 +28,9 @@ export class ProfileManager {
   private emitChange(): void { for (const h of this.changeHandlers) h(); }
 
   async init(): Promise<void> {
+    // Load cached profiles from localStorage (instant, before relay responds)
+    this.loadCachedProfiles();
+
     this.feedManager.onObject((obj) => {
       if (obj.body.type === 'profile') this.handleProfile(obj);
       this.trackSeen(obj.body.author, obj.body.timestamp);
@@ -35,6 +38,25 @@ export class ProfileManager {
 
     await this.feedManager.subscribe('profiles', [{ types: ['profile'] }]);
     await this.publishProfile();
+  }
+
+  private loadCachedProfiles(): void {
+    try {
+      const cached = localStorage.getItem('agora_profiles_cache');
+      if (cached) {
+        const profiles: Profile[] = JSON.parse(cached);
+        for (const p of profiles) {
+          this.profiles.set(p.publicKey, p);
+        }
+      }
+    } catch {}
+  }
+
+  private saveCachedProfiles(): void {
+    try {
+      const toCache = [...this.profiles.values()].filter(p => p.name || p.x25519PublicKey).slice(0, 200);
+      localStorage.setItem('agora_profiles_cache', JSON.stringify(toCache));
+    } catch {}
   }
 
   private async publishProfile(): Promise<void> {
@@ -70,6 +92,7 @@ export class ProfileManager {
     existing.lastSeen = obj.body.timestamp;
     existing.publicKey = obj.body.author;
     this.profiles.set(obj.body.author, existing);
+    this.saveCachedProfiles();
     this.emitChange();
   }
 
