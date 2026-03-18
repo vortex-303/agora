@@ -367,8 +367,13 @@
 	}
 	.count { color: var(--text-tertiary); font-weight: 400; }
 
-	.add-pin { padding: 12px; margin-bottom: 8px; }
-	.add-pin textarea { resize: none; min-height: 44px; background: var(--bg-input); font-size: 0.85rem; }
+	.add-pin {
+		padding: 14px; margin-bottom: 8px;
+		background: rgba(249,115,22,0.06);
+		border-color: rgba(249,115,22,0.2);
+	}
+	.add-pin textarea { resize: none; min-height: 44px; background: var(--bg-root); font-size: 0.85rem; border-color: rgba(249,115,22,0.15); }
+	.add-pin textarea:focus { border-color: var(--accent); }
 	.pin-preview { position: relative; margin-top: 6px; display: inline-block; }
 	.pin-preview img { max-height: 80px; border-radius: 6px; }
 	.remove-img {
