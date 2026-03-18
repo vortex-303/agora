@@ -150,7 +150,7 @@
 				</button>
 				{#if showUserMenu}
 					<div class="user-menu card" onclick={(e) => e.stopPropagation()}>
-						<a href="/p/{encodeURIComponent(identityState.identity.publicKeyBase64)}" class="menu-link" onclick={() => { showUserMenu = false; }}>My Lobby</a>
+						<a href="/{appState.profileManager?.getProfile(identityState.identity.publicKeyBase64)?.name ? appState.profileManager.getProfile(identityState.identity.publicKeyBase64)!.name!.toLowerCase().replace(/\s+/g, '') : `p/${encodeURIComponent(identityState.identity.publicKeyBase64)}`}" class="menu-link" onclick={() => { showUserMenu = false; }}>My Riot Link</a>
 						<a href="/settings" class="menu-link" onclick={() => { showUserMenu = false; }}>Settings</a>
 						<div class="menu-divider"></div>
 						<div class="menu-label">Public address</div>

@@ -15,14 +15,20 @@
 
 	onMount(() => {
 		const check = setInterval(async () => {
-			if (!identityState.identity) return; // wait for identity
-			loaded = true; // show lobby immediately
+			if (!identityState.identity) return;
+			loaded = true;
 			const fm = appState.feedManager;
 			if (fm) {
 				clearInterval(check);
 				const myKey = identityState.identity.publicKeyBase64;
-				fm.subscribe('my-lobby', [{ authors: [myKey] }]);
-				fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
+				// Load from cache first (instant)
+				const cached = await fm.loadCachedFeed();
+				for (const obj of cached) addToFeed(obj);
+				// Then subscribe for live + relay data
+				await fm.subscribe('my-lobby', [{ authors: [myKey] }]);
+				await fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
+				// Wire live objects
+				fm.onObject((obj) => addToFeed(obj));
 			}
 		}, 50);
 		return () => clearInterval(check);
@@ -32,7 +38,12 @@
 	let profile = $derived(appState.profileManager?.getProfile(myKey));
 	let displayName = $derived(profile?.name || myKey.slice(0, 12) + '...');
 	let location = $derived(appState.profileManager?.locationString(myKey));
-	let lobbyUrl = $derived(typeof window !== 'undefined' ? `${window.location.origin}/p/${encodeURIComponent(myKey)}` : '');
+	let myUsername = $derived(profile?.name?.toLowerCase().replace(/\s+/g, '') || '');
+	let lobbyUrl = $derived(
+		typeof window !== 'undefined'
+			? (myUsername ? `${window.location.origin}/${myUsername}` : `${window.location.origin}/p/${encodeURIComponent(myKey)}`)
+			: ''
+	);
 
 	// Pins: my latest posts (no replies, no inbox messages), max 5
 	let pins = $derived(
