@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { createObject, type PostContent, type SignedObject } from '@agora/core';
-	import { identityState, feedState, addToFeed, appState } from '$lib/stores.svelte.js';
+	import { identityState, feedState, addToFeed, appState, reactiveState } from '$lib/stores.svelte.js';
 	import Markdown from '$lib/Markdown.svelte';
 
 	let loaded = $state(false);
@@ -34,6 +34,7 @@
 		return () => clearInterval(check);
 	});
 
+	let _tick = $derived(reactiveState.tick); // force re-render on delete
 	let myKey = $derived(identityState.identity?.publicKeyBase64 || '');
 	let profile = $derived(appState.profileManager?.getProfile(myKey));
 	let displayName = $derived(profile?.name || myKey.slice(0, 12) + '...');
@@ -45,22 +46,25 @@
 			: ''
 	);
 
-	// Pins: my latest posts (no replies, no inbox messages), max 5
-	let pins = $derived(
+	// Pins: my latest posts (no replies, no inbox messages, not deleted), max 5
+	let pins = $derived((_tick,
 		feedState.objects
 			.filter(o => o.body.author === myKey && o.body.type === 'post' &&
 				!(o.body.content as PostContent).reply &&
-				!(o.body.content as PostContent).topic?.startsWith('inbox:'))
+				!(o.body.content as PostContent).topic?.startsWith('inbox:') &&
+				!appState.moderation?.isDeleted(o.id))
 			.sort((a, b) => b.body.timestamp - a.body.timestamp)
-			.slice(0, 5)
+			.slice(0, 5))
 	);
 
-	// Shared files: my posts with images
-	let sharedFiles = $derived(
+	// Shared files: my posts with images, not deleted
+	let sharedFiles = $derived((_tick,
 		feedState.objects
-			.filter(o => o.body.author === myKey && o.body.type === 'post' && (o.body.content as PostContent).image)
+			.filter(o => o.body.author === myKey && o.body.type === 'post' &&
+				(o.body.content as PostContent).image &&
+				!appState.moderation?.isDeleted(o.id))
 			.sort((a, b) => b.body.timestamp - a.body.timestamp)
-			.slice(0, 10)
+			.slice(0, 10))
 	);
 
 	// Inbox messages from visitors
