@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Riot — Your words. Your keys. Your network.</title>
-<meta name="description" content="A social platform where you own your identity, your messages are encrypted by default, and no company stands between you and the people you talk to. Built on cryptography, not trust.">
+<title>Riot — Your encrypted contact page.</title>
+<meta name="description" content="One link. Anyone can reach you. No email, no phone number, no account needed to message you. End-to-end encrypted. Self-hosted in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -13,13 +13,12 @@
 :root {
   --accent: #f97316;
   --accent-hover: #fb923c;
-  --accent-dim: #ea580c;
   --accent-glow: rgba(249,115,22,0.15);
   --accent-glow-strong: rgba(249,115,22,0.3);
   --bg-root: #07070a;
   --bg-surface: #0e0e12;
   --bg-raised: #141418;
-  --bg-overlay: #1a1a20;
+  --bg-input: #111116;
   --text-primary: #f0f0f0;
   --text-secondary: #a0a0a8;
   --text-tertiary: #606068;
@@ -31,134 +30,110 @@ body { font-family: var(--font-sans); background: var(--bg-root); color: var(--t
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); }
 
-/* Grid bg */
 .grid-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(249,115,22,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(249,115,22,0.03) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; z-index: 0; }
 .glow { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
 .glow-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; right: -100px; opacity: 0.06; }
 .glow-2 { width: 400px; height: 400px; background: #c2410c; bottom: -100px; left: -100px; opacity: 0.05; }
-.glow-3 { width: 300px; height: 300px; background: #fb923c; top: 40%; left: 50%; transform: translateX(-50%); opacity: 0.03; }
 canvas#gridCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
 
-/* Layout */
-.container { max-width: 960px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+.container { max-width: 880px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
 section { padding: 100px 0; }
 .section-dark { background: var(--bg-surface); }
 
-/* Nav */
-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 14px 0; background: rgba(7,7,10,0.75); backdrop-filter: blur(20px) saturate(1.2); border-bottom: 1px solid rgba(255,255,255,0.04); }
+nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 14px 0; background: rgba(7,7,10,0.8); backdrop-filter: blur(20px) saturate(1.2); border-bottom: 1px solid rgba(255,255,255,0.04); }
 .nav-inner { display: flex; justify-content: space-between; align-items: center; }
 .nav-logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); }
 .nav-logo span { color: var(--accent); }
-.nav-links { display: flex; gap: 28px; font-size: 0.85rem; font-weight: 500; }
-.nav-links a { color: var(--text-secondary); transition: color 0.2s; }
-.nav-links a:hover { color: var(--accent); }
 .btn-primary { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #000; border: none; border-radius: 999px; padding: 9px 22px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; }
 .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 30px var(--accent-glow-strong); transform: translateY(-1px); color: #000; }
 .btn-secondary { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-raised); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; padding: 9px 22px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-xl { padding: 14px 36px; font-size: 1rem; box-shadow: 0 0 40px var(--accent-glow); }
 
 /* Hero */
 .hero { min-height: 100vh; display: flex; align-items: center; padding-top: 80px; }
-.hero-content { max-width: 680px; }
+.hero-content { max-width: 600px; }
 .hero-badge { display: inline-flex; align-items: center; gap: 8px; padding: 5px 16px; border-radius: 999px; background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.15); font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 28px; }
 .hero-badge .pulse { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: pulse-dot 2s infinite; }
 .hero h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 20px; }
 .hero h1 .accent { background: linear-gradient(135deg, #f97316, #fdba74); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.hero-sub { font-size: 1.05rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 32px; max-width: 540px; }
-.hero-actions { display: flex; gap: 12px; margin-bottom: 36px; flex-wrap: wrap; }
-.hero-stats { display: flex; gap: 32px; flex-wrap: wrap; }
-.hero-stat { text-align: center; }
-.hero-stat .num { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
-.hero-stat .label { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
-.code-pill { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 16px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 40px; }
-.code-pill .prompt { color: var(--accent); }
-.code-pill .typed { color: var(--text-primary); }
-.code-pill .cursor { display: inline-block; width: 2px; height: 1em; background: var(--accent); animation: blink 1s step-end infinite; margin-left: 1px; }
+.hero-sub { font-size: 1.05rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 28px; max-width: 500px; }
+.hero-link { display: inline-block; font-family: var(--font-mono); font-size: 1.2rem; color: var(--accent); background: var(--bg-surface); border: 1px solid rgba(249,115,22,0.2); border-radius: 10px; padding: 14px 24px; margin-bottom: 32px; letter-spacing: -0.01em; }
+.hero-link .dim { color: var(--text-tertiary); }
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
 /* Sections */
-.section-eyebrow { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 12px; }
-.section-title { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 20px; }
-.section-sub { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.7; max-width: 560px; margin-bottom: 48px; }
+.eyebrow { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 12px; }
+.stitle { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 20px; }
+.ssub { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.7; max-width: 520px; margin-bottom: 48px; }
 
-/* Feature cards */
-.card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.feature-card { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 28px 24px; transition: all 0.3s; }
-.feature-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 0 40px var(--accent-glow); }
-.feature-icon { font-size: 1.5rem; margin-bottom: 14px; }
-.feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
-.feature-card p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+/* Steps */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.step { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04); border-radius: 14px; padding: 28px 24px; transition: all 0.3s; }
+.step:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 0 40px var(--accent-glow); }
+.step-num { font-family: var(--font-mono); font-size: 2rem; font-weight: 700; color: var(--accent); opacity: 0.3; margin-bottom: 12px; }
+.step h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+.step p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+.step-url { font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent); margin-top: 10px; padding: 6px 10px; background: var(--bg-root); border-radius: 6px; display: inline-block; }
+
+/* Features */
+.features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.feat { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04); border-radius: 14px; padding: 24px; transition: all 0.3s; }
+.feat:hover { border-color: var(--accent); box-shadow: 0 0 30px var(--accent-glow); }
+.feat-icon { font-size: 1.4rem; margin-bottom: 12px; }
+.feat h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+.feat p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; }
 
 /* Comparison */
-.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.compare-col { padding: 28px; border-radius: 12px; }
-.compare-old { background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.1); }
-.compare-new { background: rgba(249,115,22,0.04); border: 1px solid rgba(249,115,22,0.15); }
-.compare-col h3 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 20px; }
-.compare-old h3 { color: #f87171; }
-.compare-new h3 { color: var(--accent); }
-.compare-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; font-size: 0.9rem; line-height: 1.5; color: var(--text-secondary); }
-.compare-item .icon { flex-shrink: 0; font-size: 0.8rem; margin-top: 3px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.col { padding: 28px; border-radius: 14px; }
+.col-old { background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.1); }
+.col-new { background: rgba(249,115,22,0.04); border: 1px solid rgba(249,115,22,0.15); }
+.col h3 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 20px; }
+.col-old h3 { color: #f87171; }
+.col-new h3 { color: var(--accent); }
+.row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; font-size: 0.88rem; line-height: 1.5; color: var(--text-secondary); }
+.row .ic { flex-shrink: 0; font-size: 0.8rem; margin-top: 3px; }
 
-/* Architecture */
-.arch-visual { display: flex; justify-content: center; margin-top: 48px; }
-.arch-diagram { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; justify-content: center; }
-.arch-node { background: var(--bg-raised); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 18px 24px; text-align: center; min-width: 120px; transition: all 0.3s; }
-.arch-node:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
-.arch-node .icon { font-size: 1.5rem; margin-bottom: 6px; }
-.arch-node .name { font-size: 0.8rem; font-weight: 600; }
-.arch-node .sub { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 2px; }
-.arch-arrow { color: var(--accent); font-size: 1.2rem; opacity: 0.4; }
+/* Claim CTA */
+.claim-section { text-align: center; padding: 120px 0; }
+.claim-section h2 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 24px; }
+.claim-section h2 .accent { background: linear-gradient(135deg, #f97316, #fdba74); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.claim-box { display: flex; align-items: center; justify-content: center; gap: 0; margin: 0 auto 16px; max-width: 480px; }
+.claim-prefix { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.06); border-right: none; border-radius: 10px 0 0 10px; padding: 14px 16px; font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-tertiary); white-space: nowrap; }
+.claim-input { flex: 1; background: var(--bg-input); border: 1px solid rgba(255,255,255,0.06); border-radius: 0; padding: 14px 16px; font-family: var(--font-mono); font-size: 0.95rem; color: var(--accent); outline: none; }
+.claim-input:focus { border-color: var(--accent); }
+.claim-input::placeholder { color: var(--text-tertiary); }
+.claim-btn { background: var(--accent); border: 1px solid var(--accent); border-radius: 0 10px 10px 0; padding: 14px 24px; font-size: 0.9rem; font-weight: 600; color: #000; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.claim-btn:hover { background: var(--accent-hover); box-shadow: 0 0 30px var(--accent-glow-strong); }
+.claim-sub { color: var(--text-tertiary); font-size: 0.85rem; }
 
-/* CTA */
-.cta-section { text-align: center; padding: 120px 0; }
-.cta-section h2 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; }
-.cta-section h2 .accent { background: linear-gradient(135deg, #f97316, #fdba74); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.cta-section p { color: var(--text-secondary); margin-bottom: 32px; font-size: 1rem; }
-.cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.btn-xl { padding: 14px 36px; font-size: 1rem; box-shadow: 0 0 40px var(--accent-glow); }
+/* Encrypted */
+.encrypt-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.ecard { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04); border-radius: 14px; padding: 24px; text-align: center; transition: all 0.3s; }
+.ecard:hover { border-color: var(--accent); }
+.ecard-icon { font-size: 1.8rem; margin-bottom: 10px; }
+.ecard h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+.ecard p { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; }
 
-/* Footer */
 footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-align: center; }
-footer .footer-links { display: flex; gap: 24px; justify-content: center; font-size: 0.8rem; color: var(--text-tertiary); }
-footer a { color: var(--text-tertiary); }
-footer a:hover { color: var(--accent); }
+.foot-links { display: flex; gap: 24px; justify-content: center; font-size: 0.8rem; }
+.foot-links a { color: var(--text-tertiary); }
+.foot-links a:hover { color: var(--accent); }
 
-/* Deploy cards */
-.deploy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
-.deploy-card { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 24px; transition: all 0.3s; }
-.deploy-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 0 40px var(--accent-glow); }
-.deploy-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
-.deploy-card .deploy-time { font-size: 0.7rem; color: var(--accent); margin-bottom: 12px; }
-.deploy-card .deploy-badge { display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: rgba(249,115,22,0.1); color: var(--accent); margin-bottom: 10px; }
-.code-block { background: var(--bg-root); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 16px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); overflow-x: auto; margin-top: 8px; line-height: 1.6; white-space: pre; }
-.code-block .comment { color: var(--text-tertiary); }
-.code-block .cmd { color: var(--accent); }
-
-/* Principles */
-.principles p {
-  font-size: 1.05rem; line-height: 2.2; color: var(--text-secondary);
-  border-bottom: 1px solid rgba(255,255,255,0.04); padding: 8px 0;
-}
-.principles p:last-child { border-bottom: none; }
-
-/* Reveal */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1); }
 .reveal.visible { opacity: 1; transform: translateY(0); }
-
-/* Animations */
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-@keyframes blink { 50% { opacity: 0; } }
-@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
-/* Mobile */
 @media (max-width: 768px) {
-  .card-grid { grid-template-columns: 1fr; }
-  .compare-grid { grid-template-columns: 1fr; }
-  .deploy-grid { grid-template-columns: 1fr; }
-  .nav-links { display: none; }
-  .hero-stats { gap: 20px; }
-  .arch-diagram { flex-direction: column; }
-  .arch-arrow { transform: rotate(90deg); }
+  .steps { grid-template-columns: 1fr; }
+  .features { grid-template-columns: 1fr; }
+  .compare { grid-template-columns: 1fr; }
+  .encrypt-cards { grid-template-columns: 1fr; }
+  .claim-box { flex-direction: column; }
+  .claim-prefix { border-radius: 10px 10px 0 0; border-right: 1px solid rgba(255,255,255,0.06); border-bottom: none; width: 100%; text-align: center; }
+  .claim-input { border-radius: 0; width: 100%; text-align: center; }
+  .claim-btn { border-radius: 0 0 10px 10px; width: 100%; }
   section { padding: 60px 0; }
 }
 </style>
@@ -168,20 +143,12 @@ footer a:hover { color: var(--accent); }
 <div class="grid-bg"></div>
 <div class="glow glow-1"></div>
 <div class="glow glow-2"></div>
-<div class="glow glow-3"></div>
 <canvas id="gridCanvas"></canvas>
 
-<!-- Nav -->
 <nav>
   <div class="container nav-inner">
     <a href="/" class="nav-logo">riot<span>.</span></a>
-    <div class="nav-links">
-      <a href="#algorithm">The Algorithm</a>
-      <a href="#communities">Communities</a>
-      <a href="#truth">The Truth</a>
-      <a href="#p2p">P2P</a>
-    </div>
-    <a href="https://app.riotp2p.com" class="btn-primary">Open Riot</a>
+    <a href="https://app.riotp2p.com" class="btn-primary">Create Your Link</a>
   </div>
 </nav>
 
@@ -189,426 +156,162 @@ footer a:hover { color: var(--accent); }
 <section class="hero">
   <div class="container">
     <div class="hero-content">
-      <div class="hero-badge"><span class="pulse"></span> No accounts &middot; No tracking &middot; No permission needed</div>
-      <h1>Talk without<br><span class="accent">permission.</span></h1>
-      <p class="hero-sub">A messaging network built on cryptography. No company reads your messages. No algorithm filters your reach. No authority decides who gets to speak. Your identity is a key you hold. Your conversations are encrypted before they leave your device. The network runs on math, not terms of service.</p>
-      <div class="code-pill">
-        <span class="prompt">$</span>
-        <span class="typed" id="typed"></span><span class="cursor"></span>
-      </div>
+      <div class="hero-badge"><span class="pulse"></span> Encrypted &middot; Anonymous &middot; No account needed to message</div>
+      <h1>Your encrypted<br><span class="accent">contact page.</span></h1>
+      <p class="hero-sub">One link. Anyone can reach you. No email exposed. No phone number shared. No sign-up required to send you a message. End-to-end encrypted. Hosted in your browser, not on a server.</p>
+      <div class="hero-link"><span class="dim">riotp2p.com/</span>yourname</div>
       <div class="hero-actions">
-        <a href="https://app.riotp2p.com" class="btn-primary btn-xl">Enter Riot &rarr;</a>
-        <a href="https://github.com/vortex-303/agora" class="btn-secondary">View Source</a>
-      </div>
-      <div class="hero-stats">
-        <div class="hero-stat"><div class="num" data-target="0">0</div><div class="label">Data collected</div></div>
-        <div class="hero-stat"><div class="num" data-target="0">0</div><div class="label">Accounts needed</div></div>
-        <div class="hero-stat"><div class="num" data-target="256">0</div><div class="label">Bit encryption</div></div>
-        <div class="hero-stat"><div class="num" data-target="2">0</div><div class="label">Continents</div></div>
+        <a href="https://app.riotp2p.com" class="btn-primary btn-xl">Create Your Link &rarr;</a>
+        <a href="https://github.com/vortex-303/agora" class="btn-secondary">Open Source</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- 1. Data Sovereignty -->
-<section class="section-dark" id="sovereignty">
+<!-- How It Works -->
+<section class="section-dark">
   <div class="container">
-    <div class="section-eyebrow reveal">The Uncensored Network</div>
-    <h2 class="section-title reveal">Messages no one can<br><span class="accent">intercept, censor, or revoke.</span></h2>
-    <p class="section-sub reveal">Every design decision in Agora exists to remove a gatekeeper. No one sits between you and the people you want to reach.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔑</div>
-        <h3>You Are Your Key</h3>
-        <p>No email. No phone number. No verification selfie. Twelve words generate your identity — an Ed25519 keypair that exists only on your device. Nobody issues it. Nobody can revoke it.</p>
+    <div class="eyebrow reveal">How It Works</div>
+    <h2 class="stitle reveal">Three steps.<br>Ten seconds.</h2>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <h3>Pick a name</h3>
+        <p>No email. No phone. Twelve random words create your cryptographic identity. Pick a username. That's your link.</p>
+        <div class="step-url">riotp2p.com/nico</div>
       </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔒</div>
-        <h3>Encrypted by Default</h3>
-        <p>Every DM uses a fresh ephemeral key. Even if a relay is compromised, past messages can't be decrypted. Forward secrecy isn't a premium feature — it's the only mode.</p>
+      <div class="step reveal">
+        <div class="step-num">02</div>
+        <h3>Pin what matters</h3>
+        <p>Five slots for whatever you want people to see. Links, text, images, files. Your micro-profile. Update it anytime.</p>
       </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🌐</div>
-        <h3>No Single Throat to Choke</h3>
-        <p>Your client connects to multiple relays across continents. Kill one — the others keep working. Kill them all — browsers talk directly. The network has no off switch.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">📡</div>
-        <h3>Run Your Own Relay</h3>
-        <p>Don't trust our servers? Run your own in 30 seconds. The code is open, the protocol is documented, and your identity works on any relay. You're never locked in. You're never locked out.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">✍️</div>
-        <h3>Tamper-Proof by Math</h3>
-        <p>Every post is content-addressed and cryptographically signed. Nobody — not a relay operator, not an admin, not a government — can alter what you said or forge your words.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">📴</div>
-        <h3>Portable Identity</h3>
-        <p>Your twelve words work on any relay, any device, forever. There's no export button because there's nothing to export from. Your identity was never stored on someone else's server.</p>
+      <div class="step reveal">
+        <div class="step-num">03</div>
+        <h3>Share your link</h3>
+        <p>Put it in your bio, email signature, business card. Anyone who opens it can message you anonymously. Encrypted. No account needed.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- 2. How It Works -->
-<section id="how">
-  <div class="container">
-    <div class="section-eyebrow reveal">How It Works</div>
-    <h2 class="section-title reveal">Trust math.<br>Not Elon. Not the next<br>"hero" who buys a stage.</h2>
-    <p class="section-sub reveal">Three steps. No sign-up form. No email confirmation. No phone number. No waiting for approval from someone who doesn't know you.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon" style="color: var(--accent)">01</div>
-        <h3>Twelve Words</h3>
-        <p>Your device generates twelve random words. From those words, mathematics derives your identity — an Ed25519 keypair. Write them down. That piece of paper is your account, forever, on any device, anywhere.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon" style="color: var(--accent)">02</div>
-        <h3>Connect Everywhere</h3>
-        <p>Your client connects to relays — simple servers that store and forward signed messages. They can't read your DMs. They can't edit your posts. They can't pretend to be you. Run your own if you want. Use ours if you don't.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon" style="color: var(--accent)">03</div>
-        <h3>Speak Freely</h3>
-        <p>Post to communities. Reply to conversations. Send encrypted messages. Every action is cryptographically signed — verifiable by anyone, forgeable by no one. Your words carry your signature, not a platform's watermark.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 3. Architecture -->
-<section class="section-dark" id="architecture">
-  <div class="container">
-    <div class="section-eyebrow reveal">Architecture</div>
-    <h2 class="section-title reveal">A network with<br><span class="accent">no off switch.</span></h2>
-    <p class="section-sub reveal">Agora has no headquarters, no CEO, no board that can vote to sell your data. The architecture makes betrayal technically impossible — not just against policy.</p>
-    <div class="arch-visual reveal">
-      <div class="arch-diagram">
-        <div class="arch-node" style="animation: float 4s ease-in-out infinite">
-          <div class="icon">🖥️</div>
-          <div class="name">You</div>
-          <div class="sub">Keys + data on device</div>
-        </div>
-        <span class="arch-arrow">⟷</span>
-        <div class="arch-node" style="animation: float 4s ease-in-out infinite 0.5s">
-          <div class="icon">📡</div>
-          <div class="name">Relays</div>
-          <div class="sub">Dumb pipes, replaceable</div>
-        </div>
-        <span class="arch-arrow">⟷</span>
-        <div class="arch-node" style="animation: float 4s ease-in-out infinite 1s">
-          <div class="icon">🖥️</div>
-          <div class="name">Everyone</div>
-          <div class="sub">P2P mesh, no permission</div>
-        </div>
-      </div>
-    </div>
-    <div style="text-align:center; margin-top:16px; color:var(--text-tertiary); font-size:0.8rem;" class="reveal">
-      Relays sync across continents. Browsers connect directly via WebRTC. Kill any piece — the rest keeps working.
-    </div>
-  </div>
-</section>
-
-<!-- 4. P2P Heritage -->
-<section id="p2p">
-  <div class="container">
-    <div class="section-eyebrow reveal">P2P Heritage</div>
-    <h2 class="section-title reveal">Built on 25 years of P2P engineering.<br><span class="accent">No casino attached.</span></h2>
-    <p class="section-sub reveal">BitTorrent solved a problem in 2001 that most "web3" projects still can't: distributing data across millions of untrusted nodes without a central server. The core ideas — content addressing, gossip propagation, swarm resilience — are some of the most battle-tested engineering on the internet. Riot is built on those ideas. What we didn't take: the speculation.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon">🧬</div>
-        <h3>Content Addressing</h3>
-        <p>Every post is identified by its SHA-256 hash — the same principle behind torrent piece verification. Same content = same ID, anywhere in the network. No database. No central authority assigning identifiers. The data is the address.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔄</div>
-        <h3>Gossip Protocol</h3>
-        <p>When a node receives a new object, it forwards to all peers. Objects ripple through the mesh like files through a torrent swarm. No coordinator. No bottleneck. Just propagation — the same protocol that made file sharing unkillable.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🛡️</div>
-        <h3>Swarm Resilience</h3>
-        <p>Kill a relay. Kill ten relays. The network keeps working because every browser has a copy and can talk directly to other browsers. This is the same architecture that made torrents survive two decades of legal attacks. It works because there's nothing to shut down.</p>
-      </div>
-    </div>
-    <div class="no-casino reveal" style="margin-top:40px; text-align:center; max-width:640px; margin-left:auto; margin-right:auto;">
-      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">The crypto industry took this same P2P technology and strapped a financial instrument to it. Tokens, mining, staking, airdrops — layers of speculation on top of engineering that already worked.</p>
-      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8; margin-bottom:12px;">We took the engineering and left the casino.</p>
-      <p style="font-size:1.05rem; color:var(--text-secondary); line-height:1.8;">No tokens. No mining. No "invest in the future of social media." The value of this network is the conversation happening on it — not a number on an exchange.</p>
-    </div>
-  </div>
-</section>
-
-<!-- 5. The Algorithm -->
-<section class="section-dark" id="algorithm">
-  <div class="container">
-    <div class="section-eyebrow reveal">The Algorithm</div>
-    <h2 class="section-title reveal">One line of math.<br>Not ten thousand lines of <span class="accent">manipulation.</span></h2>
-    <p class="section-sub reveal">Every major platform uses a proprietary algorithm to decide what reaches you. It's optimized for one thing: keeping you scrolling. Not truth. Not relevance. Not what your friends actually said. Engagement. Because engagement sells ads.</p>
-    <div class="compare-grid reveal">
-      <div class="compare-col compare-old">
-        <h3>Their algorithm</h3>
-        <div class="compare-item"><span class="icon">✕</span> Proprietary — you can't see how it works</div>
-        <div class="compare-item"><span class="icon">✕</span> Optimized for engagement (rage, outrage, dopamine)</div>
-        <div class="compare-item"><span class="icon">✕</span> Paid posts disguised as organic content</div>
-        <div class="compare-item"><span class="icon">✕</span> Suppresses reach unless you pay to boost</div>
-        <div class="compare-item"><span class="icon">✕</span> A/B tests your emotions without consent</div>
-        <div class="compare-item"><span class="icon">✕</span> Changes without notice to serve business goals</div>
-      </div>
-      <div class="compare-col compare-new">
-        <h3>Riot's ranking</h3>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Open source — the formula is in the code, readable by anyone</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Ranked by votes + replies + time decay. Discussion surfaces, noise sinks.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No promoted posts. No paid placement. No native ads.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Every post has equal reach. No pay-to-play.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No tracking. No profiling. Same inputs = same ranking for everyone.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Deterministic math. Same formula forever. Verify it yourself.</div>
-      </div>
-    </div>
-    <div class="algo-formula reveal" style="text-align:center; margin-top:40px;">
-      <p style="color:var(--text-tertiary); font-size:0.8rem; margin-bottom:12px;">The entire ranking algorithm:</p>
-      <code style="font-family:var(--font-mono); font-size:1.1rem; color:var(--accent); background:var(--bg-raised); padding:12px 24px; border-radius:8px; border:1px solid rgba(249,115,22,0.15); display:inline-block;">score = (votes + 1) &times; (1 + replies &times; 0.3) / (hours/6 + 1)<sup>1.5</sup></code>
-      <p style="color:var(--text-tertiary); font-size:0.8rem; margin-top:12px;">That's it. No hidden weights. No user profiling. Math.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Communities -->
-<section id="communities">
-  <div class="container">
-    <div class="section-eyebrow reveal">Communities</div>
-    <h2 class="section-title reveal">Communities owned by<br>their members.</h2>
-    <p class="section-sub reveal">On other platforms, a subreddit can be nuked by an admin, a Facebook group can be deleted overnight, a Discord server exists at the pleasure of a company in San Francisco. On Riot, communities are claimed by cryptographic identity. The first person to claim a name owns it. Moderation is transparent. Every action is signed.</p>
-    <div class="card-grid">
-      <div class="feature-card reveal">
-        <div class="feature-icon">🏛️</div>
-        <h3>Claim, Don't Ask</h3>
-        <p>Create a community by claiming a name. No application form. No approval process. No waiting. First come, first served — enforced by cryptography, not policy.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔍</div>
-        <h3>Transparent Moderation</h3>
-        <p>Every mod action — hide, pin, ban — is a signed cryptographic object. Who did it, when, and why. Members can toggle "show hidden" to see what was removed. No shadow bans. No invisible hands.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">📋</div>
-        <h3>Auditable History</h3>
-        <p>Moderation logs aren't hidden in an admin panel. They're signed objects on the same network as posts. Anyone can verify that a moderator actually made a decision — not a bot, not an algorithm, not an anonymous trust & safety team.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🗳️</div>
-        <h3>Community Voting</h3>
-        <p>Upvote and downvote posts. One vote per identity per post — cryptographically enforced. No bots farming engagement. No vote manipulation. Every vote is signed by a real key.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🔀</div>
-        <h3>Follow What Matters</h3>
-        <p>Follow communities to build your personal feed. Unfollow to remove them. You curate your experience — not an algorithm optimized to make you angry enough to keep scrolling.</p>
-      </div>
-      <div class="feature-card reveal">
-        <div class="feature-icon">🚀</div>
-        <h3>Anyone Can Create</h3>
-        <p>There's no approval process, no content policy review, no "your community doesn't meet our guidelines." If you want a community for medieval cooking or post-quantum cryptography, make one. It's yours.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 6. The Truth -->
-<section id="truth">
-  <div class="container">
-    <div class="section-eyebrow reveal">The Price of Free</div>
-    <h2 class="section-title reveal">You are not the user.<br>You are the <span class="accent">product.</span></h2>
-    <p class="section-sub reveal">Every "free" platform made money from the same thing: you. Your attention, your relationships, your private conversations — packaged and sold. Here's what they do that we don't.</p>
-    <div class="compare-grid reveal">
-      <div class="compare-col compare-old">
-        <h3>What they do</h3>
-        <div class="compare-item"><span class="icon">✕</span> Read your messages to target ads</div>
-        <div class="compare-item"><span class="icon">✕</span> Sell your social graph to data brokers</div>
-        <div class="compare-item"><span class="icon">✕</span> Shadow ban without telling you</div>
-        <div class="compare-item"><span class="icon">✕</span> A/B test your emotions for engagement</div>
-        <div class="compare-item"><span class="icon">✕</span> Show you promoted content disguised as organic</div>
-        <div class="compare-item"><span class="icon">✕</span> Track you across the internet with pixels and cookies</div>
-        <div class="compare-item"><span class="icon">✕</span> Hand your data to governments without a warrant</div>
-        <div class="compare-item"><span class="icon">✕</span> Change terms of service retroactively</div>
-      </div>
-      <div class="compare-col compare-new">
-        <h3>What we deliberately don't</h3>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No analytics on your behavior — zero telemetry</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No social graph extraction — we don't know who you follow</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No shadow bans — moderation is signed and visible</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No A/B testing — same experience for everyone</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No ads. No promoted posts. No paid placement. Ever.</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No tracking pixels, no cookies, no fingerprinting</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No data to hand over — messages are encrypted, we can't read them</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> No read receipts, no typing indicators, no "last seen" — privacy by design</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 7. Open Source -->
-<section id="source">
-  <div class="container" style="text-align:center; max-width:640px;">
-    <div class="section-eyebrow reveal">Open Source</div>
-    <h2 class="section-title reveal">If you can't read the code,<br>you can't trust the promise.</h2>
-    <p class="section-sub reveal" style="max-width:none">Every company says they care about privacy. Most of them are lying. The only way to know for sure is to read the code. Riot is MIT licensed — every line, every algorithm, every cryptographic decision is public and auditable. If we ever betray our principles, you'll see it in the diff.</p>
-    <div class="hero-stats reveal" style="justify-content:center; margin-bottom:40px;">
-      <div class="hero-stat"><div class="num" data-target="7000">0</div><div class="label">Lines of Code</div></div>
-      <div class="hero-stat"><div class="num" data-target="34">0</div><div class="label">Tests Passing</div></div>
-      <div class="hero-stat"><div class="num" data-target="3">0</div><div class="label">Relays Live</div></div>
-      <div class="hero-stat"><div class="num" data-target="4">0</div><div class="label">Runtime Deps</div></div>
-    </div>
-    <div class="cta-actions reveal">
-      <a href="https://github.com/vortex-303/agora" class="btn-primary">Read the Code &rarr;</a>
-    </div>
-  </div>
-</section>
-
-<!-- Run a Relay -->
-<section class="section-dark" id="relay">
-  <div class="container">
-    <div class="section-eyebrow reveal">Strengthen the Network</div>
-    <h2 class="section-title reveal">Run a relay.<br><span class="accent">It takes 60 seconds.</span></h2>
-    <p class="section-sub reveal">Every relay makes the network harder to kill. Your relay syncs with the public network automatically — every post, every community, every conversation flows through every relay. More relays = more resilience = more freedom.</p>
-    <div class="deploy-grid">
-      <div class="deploy-card reveal">
-        <div class="deploy-badge">Fastest</div>
-        <h3>Fly.io</h3>
-        <div class="deploy-time">~2 minutes</div>
-        <div class="code-block"><span class="comment"># Clone + deploy</span>
-<span class="cmd">git clone</span> github.com/vortex-303/agora
-<span class="cmd">cd</span> agora
-<span class="cmd">cp</span> deploy/fly-template.toml fly.toml
-<span class="cmd">fly launch</span></div>
-      </div>
-      <div class="deploy-card reveal">
-        <h3>Docker</h3>
-        <div class="deploy-time">~1 minute</div>
-        <div class="code-block"><span class="comment"># One command</span>
-<span class="cmd">git clone</span> github.com/vortex-303/agora
-<span class="cmd">cd</span> agora
-<span class="cmd">docker compose</span> -f deploy/docker-compose.yml up -d</div>
-      </div>
-      <div class="deploy-card reveal">
-        <h3>From Source</h3>
-        <div class="deploy-time">~3 minutes</div>
-        <div class="code-block"><span class="comment"># Needs Node.js 20+</span>
-<span class="cmd">curl</span> -sL riotp2p.com/install.sh | bash
-<span class="comment"># or manually:</span>
-<span class="cmd">git clone</span> github.com/vortex-303/agora
-<span class="cmd">cd</span> agora && pnpm install
-<span class="cmd">pnpm</span> --filter @agora/core build
-<span class="cmd">pnpm</span> --filter @agora/relay build
-<span class="cmd">node</span> packages/relay/dist/index.js</div>
-      </div>
-    </div>
-    <div class="reveal" style="text-align:center; max-width:560px; margin:0 auto;">
-      <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.7; margin-bottom:16px;">Your relay automatically syncs with the public network. Objects flow between all relays — yours, ours, everyone's. Users add your relay URL in Settings and instantly get redundancy.</p>
-      <p style="color:var(--text-tertiary); font-size:0.8rem;">Relays are dumb pipes. They can't read encrypted messages. They can't forge signatures. They can't modify posts. Running a relay makes the network stronger — it doesn't give you power over anyone's data.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Chrome Extension -->
-<section id="extension">
-  <div class="container">
-    <div class="section-eyebrow reveal">Become a Node</div>
-    <h2 class="section-title reveal">Install the extension.<br><span class="accent">Your browser becomes the network.</span></h2>
-    <p class="section-sub reveal">Every browser with the Agora extension is a permanent node. It syncs with relays in the background — even when the app tab is closed. More nodes = more copies of the data = harder to kill. You don't run a server. You don't configure anything. You just install it and forget.</p>
-    <div class="compare-grid reveal">
-      <div class="compare-col compare-new" style="border-color: rgba(249,115,22,0.2);">
-        <h3 style="color: var(--accent);">What the extension does</h3>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Syncs with relays every 60 seconds in the background</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Stores network objects locally in your browser</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Keeps working when the Agora tab is closed</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Shows live network stats in the extension badge</div>
-        <div class="compare-item"><span class="icon" style="color:var(--accent)">◆</span> Zero configuration. Install and forget.</div>
-      </div>
-      <div class="compare-col" style="background: var(--bg-raised); border: 1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:20px;">
-        <div style="font-size:3rem;">🧩</div>
-        <a href="/agora-extension.zip" class="btn-primary btn-xl" download style="width:100%;">Download Extension</a>
-        <p style="font-size:0.75rem; color:var(--text-tertiary); max-width:220px;">Chrome / Brave / Edge. Free. Open source. 273 lines of code.</p>
-      </div>
-    </div>
-    <div class="reveal" style="margin-top:32px;">
-      <h3 style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); margin-bottom:16px;">How to install</h3>
-      <div class="card-grid" style="grid-template-columns: repeat(3, 1fr);">
-        <div class="feature-card" style="padding:20px;">
-          <div class="feature-icon" style="color:var(--accent);">01</div>
-          <h3 style="font-size:0.9rem;">Download & unzip</h3>
-          <p style="font-size:0.8rem;">Click the download button above. Unzip the file to a folder on your computer.</p>
-        </div>
-        <div class="feature-card" style="padding:20px;">
-          <div class="feature-icon" style="color:var(--accent);">02</div>
-          <h3 style="font-size:0.9rem;">Open extensions</h3>
-          <p style="font-size:0.8rem;">Go to <code style="background:var(--bg-root); padding:1px 4px; border-radius:3px; font-size:0.75rem;">chrome://extensions</code> and enable "Developer mode" (top right toggle).</p>
-        </div>
-        <div class="feature-card" style="padding:20px;">
-          <div class="feature-icon" style="color:var(--accent);">03</div>
-          <h3 style="font-size:0.9rem;">Load unpacked</h3>
-          <p style="font-size:0.8rem;">Click "Load unpacked" and select the unzipped folder. Done. The extension icon appears in your toolbar.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Principles -->
+<!-- What You Get -->
 <section>
-  <div class="container" style="text-align:center; max-width: 640px;">
-    <div class="section-eyebrow reveal">Principles</div>
-    <h2 class="section-title reveal" style="margin-bottom:40px">What we believe.</h2>
-    <div class="principles reveal">
-      <p>Private conversations are a human right, not a premium feature.</p>
-      <p>Your identity should outlive any company.</p>
-      <p>If you can't read the source code, you can't trust the promise.</p>
-      <p>Moderation should be transparent, signed, and auditable — not arbitrary.</p>
-      <p>No one should profit from your attention without your knowledge.</p>
-      <p>Infrastructure should be commodity — replaceable, competitive, open.</p>
-      <p>The internet was built to be decentralized. We just forgot.</p>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
-<section class="cta-section section-dark">
   <div class="container">
-    <h2 class="reveal">The network is live.<br>The code is open.<br><span class="accent">The door is open.</span></h2>
-    <p class="reveal">No sign-up. No credit card. No terms of service you'll regret agreeing to.</p>
-    <div class="cta-actions reveal">
-      <a href="https://app.riotp2p.com" class="btn-primary btn-xl">Enter Riot &rarr;</a>
-      <a href="https://github.com/vortex-303/agora" class="btn-secondary">Read the Code</a>
+    <div class="eyebrow reveal">What You Get</div>
+    <h2 class="stitle reveal">A lobby. An inbox.<br>A file drop. <span class="accent">All encrypted.</span></h2>
+    <div class="features">
+      <div class="feat reveal">
+        <div class="feat-icon">📬</div>
+        <h3>Anonymous Inbox</h3>
+        <p>Anyone with your link can message you. They don't need an account. You see who sent it (their key) but they choose what to reveal. Every message is end-to-end encrypted.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon">📁</div>
+        <h3>Encrypted File Sharing</h3>
+        <p>Share files from your lobby. Visitors can download them. Files are encrypted and hosted in your browser — not on a cloud server. No Google Drive. No WeTransfer. Just a link.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon">📌</div>
+        <h3>Pinned Content</h3>
+        <p>Five slots for whatever matters right now. Portfolio link, current project, rate sheet, reading list, a photo. Not a feed. Not a timeline. A curated snapshot of you.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon">💬</div>
+        <h3>Encrypted DMs</h3>
+        <p>When someone messages your lobby, reply via DMs. Per-message forward secrecy. Share files in conversation. The relay sees ciphertext — it can't read a word.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon">🧩</div>
+        <h3>Chrome Extension</h3>
+        <p>Install the extension and your lobby stays live even when the tab is closed. Your browser becomes a permanent node on the network. <a href="/riot-extension.zip" download>Download</a></p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon">🌐</div>
+        <h3>Network Map</h3>
+        <p>See who's online, where they are, ping latency. Every node on the network is visible. Message anyone directly. The network is transparent — the messages aren't.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- Footer -->
+<!-- The Truth -->
+<section class="section-dark">
+  <div class="container">
+    <div class="eyebrow reveal">Why This Exists</div>
+    <h2 class="stitle reveal">Every "contact me" option<br>costs you <span class="accent">something.</span></h2>
+    <p class="ssub reveal">Email exposes your address to spam. Phone exposes your number. Contact forms go through someone else's server. Social media requires an account on their platform. There's no way to say "reach me" without giving something up. Until now.</p>
+    <div class="compare reveal">
+      <div class="col col-old">
+        <h3>Current options</h3>
+        <div class="row"><span class="ic">✕</span> Email → spam, phishing, address exposed forever</div>
+        <div class="row"><span class="ic">✕</span> Phone → robocalls, SIM swaps, number leaked</div>
+        <div class="row"><span class="ic">✕</span> Social DMs → need their app, they read your messages</div>
+        <div class="row"><span class="ic">✕</span> Contact forms → data goes to their server, their terms</div>
+        <div class="row"><span class="ic">✕</span> Calendly/Linktree → another account, another company</div>
+      </div>
+      <div class="col col-new">
+        <h3>Riot Link</h3>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> One link — nothing exposed except what you choose</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> No account needed to message you</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> E2E encrypted — the server can't read messages</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> Data lives in YOUR browser, not a company's server</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> Open source — 9,000 lines, MIT licensed, verify yourself</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Encrypted by Default -->
+<section>
+  <div class="container" style="text-align:center;">
+    <div class="eyebrow reveal">Under the Hood</div>
+    <h2 class="stitle reveal">Encrypted by math.<br>Not by policy.</h2>
+    <p class="ssub reveal" style="margin-left:auto; margin-right:auto;">Other platforms promise privacy in their terms of service. We enforce it with cryptography. The architecture makes reading your messages technically impossible — not just against the rules.</p>
+    <div class="encrypt-cards">
+      <div class="ecard reveal">
+        <div class="ecard-icon">🔑</div>
+        <h3>You Are Your Key</h3>
+        <p>Ed25519 keypair from 12 words. No server issues it. No one can revoke it. Works on any device, forever.</p>
+      </div>
+      <div class="ecard reveal">
+        <div class="ecard-icon">🔒</div>
+        <h3>Forward Secrecy</h3>
+        <p>Every message uses a fresh ephemeral key. Compromise one — past and future messages stay safe.</p>
+      </div>
+      <div class="ecard reveal">
+        <div class="ecard-icon">🌐</div>
+        <h3>P2P Mesh</h3>
+        <p>Browsers connect directly via WebRTC. The relay is a convenience. Kill it — the network keeps working.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Claim CTA -->
+<section class="claim-section section-dark">
+  <div class="container">
+    <h2 class="reveal">Your link is <span class="accent">waiting.</span></h2>
+    <div class="claim-box reveal">
+      <span class="claim-prefix">riotp2p.com/</span>
+      <input class="claim-input" id="claimName" placeholder="yourname" autocomplete="off" spellcheck="false" />
+      <button class="claim-btn" onclick="window.location.href='https://app.riotp2p.com/setup'">Claim it →</button>
+    </div>
+    <p class="claim-sub reveal">Free. No email. No credit card. Takes 10 seconds.</p>
+  </div>
+</section>
+
 <footer>
   <div class="container">
-    <div class="footer-links">
+    <div class="foot-links">
       <a href="https://app.riotp2p.com">App</a>
       <a href="https://github.com/vortex-303/agora">GitHub</a>
-      <a href="#">MIT License</a>
-      <span style="color:var(--text-tertiary)">riot. &copy; 2026</span>
+      <a href="/riot-extension.zip" download>Chrome Extension</a>
+      <span style="color:var(--text-tertiary)">riot. © 2026</span>
     </div>
   </div>
 </footer>
 
 <script>
-// Typing animation
-(function() {
-  var text = 'open https://app.riotp2p.com';
-  var el = document.getElementById('typed');
-  var i = 0;
-  function type() {
-    if (i < text.length) { el.textContent += text[i]; i++; setTimeout(type, 50); }
-  }
-  setTimeout(type, 800);
-})();
-
 // Scroll reveal
 (function() {
   var els = document.querySelectorAll('.reveal');
@@ -618,98 +321,45 @@ footer a:hover { color: var(--accent); }
   els.forEach(function(el) { observer.observe(el); });
 })();
 
-// Stat count-up
-(function() {
-  var nums = document.querySelectorAll('.hero-stat .num');
-  var observed = new Set();
-  var observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
-      if (e.isIntersecting && !observed.has(e.target)) {
-        observed.add(e.target);
-        var target = parseInt(e.target.dataset.target);
-        if (target === 0) return;
-        var start = 0, duration = 1200, startTime = null;
-        function step(ts) {
-          if (!startTime) startTime = ts;
-          var progress = Math.min((ts - startTime) / duration, 1);
-          var eased = 1 - Math.pow(1 - progress, 3);
-          e.target.textContent = Math.floor(eased * target).toLocaleString();
-          if (progress < 1) requestAnimationFrame(step);
-          else e.target.textContent = target.toLocaleString();
-        }
-        requestAnimationFrame(step);
-      }
-    });
-  }, { threshold: 0.5 });
-  nums.forEach(function(n) { observer.observe(n); });
-})();
-
-// Grid canvas animation
+// Grid canvas
 (function() {
   var canvas = document.getElementById('gridCanvas');
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
-  var GRID = 60, ACCENT = [249, 115, 22];
+  var GRID = 60, A = [249, 115, 22];
   var mouseX = -200, mouseY = -200;
-  var ambientNodes = [], mouseNodes = [], gTime = 0;
-
+  var ambient = [], mouse = [], t = 0;
   function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; initAmbient(); }
-  function snapToGrid(v) { return Math.round(v / GRID) * GRID; }
-
+  function snap(v) { return Math.round(v / GRID) * GRID; }
   function initAmbient() {
-    ambientNodes = [];
-    var cols = Math.floor(canvas.width / GRID), rows = Math.floor(canvas.height / GRID);
-    for (var y = 0; y <= rows; y++)
-      for (var x = 0; x <= cols; x++)
-        if (Math.random() < 0.05)
-          ambientNodes.push({ x: x*GRID, y: y*GRID, phase: Math.random()*Math.PI*2, speed: 0.2+Math.random()*0.5, size: 1+Math.random() });
+    ambient = [];
+    var c = Math.floor(canvas.width / GRID), r = Math.floor(canvas.height / GRID);
+    for (var y = 0; y <= r; y++) for (var x = 0; x <= c; x++)
+      if (Math.random() < 0.05) ambient.push({ x: x*GRID, y: y*GRID, p: Math.random()*Math.PI*2, s: 0.2+Math.random()*0.5, z: 1+Math.random() });
   }
-
-  function spawnMouse(mx, my) {
-    var cx = snapToGrid(mx), cy = snapToGrid(my), range = 4;
-    for (var dy = -range; dy <= range; dy++)
-      for (var dx = -range; dx <= range; dx++) {
-        var gx = cx+dx*GRID, gy = cy+dy*GRID, dist = Math.sqrt((gx-mx)*(gx-mx)+(gy-my)*(gy-my));
-        if (dist > range*GRID) continue;
-        if (Math.random() < 0.1*(1-dist/(range*GRID)))
-          mouseNodes.push({ x:gx, y:gy, phase:Math.random()*Math.PI*2, speed:0.4+Math.random()*0.8, size:1.5+Math.random()*1.5, life:0, maxLife:180+Math.random()*250 });
-      }
-    if (mouseNodes.length > 60) mouseNodes.splice(0, mouseNodes.length-60);
-  }
-
-  function animate() {
-    var w = canvas.width, h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    gTime += 0.016;
-    for (var n of ambientNodes) {
-      var pulse = (Math.sin(gTime*n.speed+n.phase)+1)/2;
-      ctx.beginPath(); ctx.arc(n.x, n.y, n.size+pulse*2, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba('+ACCENT[0]+','+ACCENT[1]+','+ACCENT[2]+','+(0.06+pulse*0.15)*0.45+')';
-      ctx.fill();
+  function spawn(mx, my) {
+    var cx = snap(mx), cy = snap(my), range = 4;
+    for (var dy = -range; dy <= range; dy++) for (var dx = -range; dx <= range; dx++) {
+      var gx = cx+dx*GRID, gy = cy+dy*GRID, d = Math.sqrt((gx-mx)*(gx-mx)+(gy-my)*(gy-my));
+      if (d > range*GRID) continue;
+      if (Math.random() < 0.1*(1-d/(range*GRID)))
+        mouse.push({ x:gx, y:gy, p:Math.random()*Math.PI*2, s:0.4+Math.random()*0.8, z:1.5+Math.random()*1.5, l:0, m:180+Math.random()*250 });
     }
-    for (var i = mouseNodes.length-1; i >= 0; i--) {
-      var nd = mouseNodes[i]; nd.life++;
-      if (nd.life > nd.maxLife) { mouseNodes.splice(i,1); continue; }
-      var fi = Math.min(nd.life/20,1), fo = nd.life > nd.maxLife-60 ? (nd.maxLife-nd.life)/60 : 1;
-      var pulse2 = (Math.sin(gTime*nd.speed+nd.phase)+1)/2;
-      ctx.beginPath(); ctx.arc(nd.x, nd.y, nd.size+pulse2*2, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba('+ACCENT[0]+','+ACCENT[1]+','+ACCENT[2]+','+(0.1+pulse2*0.25)*fi*fo+')';
-      ctx.fill();
-    }
-    requestAnimationFrame(animate);
+    if (mouse.length > 60) mouse.splice(0, mouse.length-60);
   }
-
-  document.addEventListener('mousemove', function(e) { mouseX=e.clientX; mouseY=e.clientY; spawnMouse(mouseX,mouseY); });
-  resize(); window.addEventListener('resize', resize); animate();
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); t += 0.016;
+    for (var n of ambient) { var p = (Math.sin(t*n.s+n.p)+1)/2; ctx.beginPath(); ctx.arc(n.x, n.y, n.z+p*2, 0, Math.PI*2); ctx.fillStyle = 'rgba('+A[0]+','+A[1]+','+A[2]+','+(0.06+p*0.15)*0.45+')'; ctx.fill(); }
+    for (var i = mouse.length-1; i >= 0; i--) { var nd = mouse[i]; nd.l++; if (nd.l > nd.m) { mouse.splice(i,1); continue; } var fi = Math.min(nd.l/20,1), fo = nd.l > nd.m-60 ? (nd.m-nd.l)/60 : 1; var p2 = (Math.sin(t*nd.s+nd.p)+1)/2; ctx.beginPath(); ctx.arc(nd.x, nd.y, nd.z+p2*2, 0, Math.PI*2); ctx.fillStyle = 'rgba('+A[0]+','+A[1]+','+A[2]+','+(0.1+p2*0.25)*fi*fo+')'; ctx.fill(); }
+    requestAnimationFrame(draw);
+  }
+  document.addEventListener('mousemove', function(e) { mouseX=e.clientX; mouseY=e.clientY; spawn(mouseX,mouseY); });
+  resize(); window.addEventListener('resize', resize); draw();
 })();
 
 // Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(function(a) {
-  a.addEventListener('click', function(e) {
-    e.preventDefault();
-    var target = document.querySelector(this.getAttribute('href'));
-    if (target) target.scrollIntoView({ behavior: 'smooth' });
-  });
+  a.addEventListener('click', function(e) { e.preventDefault(); var t = document.querySelector(this.getAttribute('href')); if (t) t.scrollIntoView({ behavior: 'smooth' }); });
 });
 </script>
 </body>
