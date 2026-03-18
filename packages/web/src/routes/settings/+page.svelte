@@ -12,13 +12,36 @@
 	let relays = $state<string[]>([]);
 	let newRelay = $state('');
 
+	// Concierge fields
+	let availability = $state('');
+	let services = $state('');
+	let preferredContact = $state('');
+	let links = $state<Array<{ label: string; url: string }>>([]);
+	let newLinkLabel = $state('');
+	let newLinkUrl = $state('');
+	let faqs = $state<Array<{ q: string; a: string }>>([]);
+	let newFaqQ = $state('');
+	let newFaqA = $state('');
+
+	const CONCIERGE_KEY = 'riot_concierge_profile';
+
 	onMount(() => {
-		// Load relays
 		const stored = localStorage.getItem('agora_relays');
-		if (stored) {
-			try { relays = JSON.parse(stored); } catch {}
-		}
+		if (stored) { try { relays = JSON.parse(stored); } catch {} }
 		if (relays.length === 0) relays = [...DEFAULT_RELAYS];
+
+		// Load concierge data
+		try {
+			const c = localStorage.getItem(CONCIERGE_KEY);
+			if (c) {
+				const data = JSON.parse(c);
+				availability = data.availability || '';
+				services = data.services || '';
+				preferredContact = data.preferredContact || '';
+				links = data.links || [];
+				faqs = data.faqs || [];
+			}
+		} catch {}
 
 		const check = setInterval(() => {
 			const pm = appState.profileManager;
@@ -31,6 +54,12 @@
 		}, 50);
 		return () => clearInterval(check);
 	});
+
+	function saveConcierge() {
+		localStorage.setItem(CONCIERGE_KEY, JSON.stringify({
+			availability, services, preferredContact, links, faqs,
+		}));
+	}
 
 	function saveProfile() {
 		const identity = identityState.identity;
@@ -52,8 +81,35 @@
 			prev: state.lastId,
 		});
 		fm.publish(obj);
+		saveConcierge();
 		saved = true;
 		setTimeout(() => { saved = false; }, 2000);
+	}
+
+	function addLink() {
+		if (!newLinkLabel.trim() || !newLinkUrl.trim()) return;
+		links = [...links, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }];
+		newLinkLabel = '';
+		newLinkUrl = '';
+		saveConcierge();
+	}
+
+	function removeLink(i: number) {
+		links = links.filter((_, idx) => idx !== i);
+		saveConcierge();
+	}
+
+	function addFaq() {
+		if (!newFaqQ.trim() || !newFaqA.trim()) return;
+		faqs = [...faqs, { q: newFaqQ.trim(), a: newFaqA.trim() }];
+		newFaqQ = '';
+		newFaqA = '';
+		saveConcierge();
+	}
+
+	function removeFaq(i: number) {
+		faqs = faqs.filter((_, idx) => idx !== i);
+		saveConcierge();
 	}
 
 	function addRelay() {
@@ -86,6 +142,7 @@
 <h2>Settings</h2>
 
 {#if identityState.identity}
+	<!-- Profile -->
 	<div class="section card">
 		<h3 class="section-title">Profile</h3>
 		<label class="field">
@@ -94,50 +151,121 @@
 		</label>
 		<label class="field">
 			<span class="field-label">Bio</span>
-			<input class="input" bind:value={bio} placeholder="Say something about yourself" />
+			<input class="input" bind:value={bio} placeholder="What do you do? Who are you?" />
 		</label>
 		<button class="btn" onclick={saveProfile}>
 			{saved ? 'Saved!' : 'Save Profile'}
 		</button>
 	</div>
 
+	<!-- Concierge Info -->
 	<div class="section card">
-		<h3 class="section-title">Relays</h3>
-		<p class="relay-hint">Connect to multiple relays for decentralization. Changes apply on next page load.</p>
-		<div class="relay-list">
-			{#each relays as url (url)}
-				<div class="relay-item">
-					<span class="relay-url mono">{url}</span>
-					<button class="relay-remove" onclick={() => removeRelay(url)}
-						disabled={relays.length <= 1}>✕</button>
-				</div>
-			{/each}
-		</div>
-		<div class="relay-add">
-			<input class="input mono" bind:value={newRelay} placeholder="wss://relay.example.com"
-				onkeydown={(e) => { if (e.key === 'Enter') addRelay(); }} />
-			<button class="btn btn-secondary" onclick={addRelay}>Add</button>
+		<h3 class="section-title">Concierge Info</h3>
+		<p class="section-hint">Optional. This information helps visitors (and your future AI concierge) know more about you.</p>
+
+		<label class="field">
+			<span class="field-label">Availability / Schedule</span>
+			<input class="input" bind:value={availability} placeholder="Mon-Fri 9-5 EST, flexible weekends"
+				onblur={saveConcierge} />
+		</label>
+
+		<label class="field">
+			<span class="field-label">Services / Rates</span>
+			<input class="input" bind:value={services} placeholder="Full-stack development, $150/hr"
+				onblur={saveConcierge} />
+		</label>
+
+		<label class="field">
+			<span class="field-label">Preferred Contact Method</span>
+			<input class="input" bind:value={preferredContact} placeholder="For urgent: email me at you@example.com"
+				onblur={saveConcierge} />
+		</label>
+	</div>
+
+	<!-- Links -->
+	<div class="section card">
+		<h3 class="section-title">Links</h3>
+		<p class="section-hint">Portfolio, GitHub, social profiles, calendar — anything you want visitors to find.</p>
+
+		{#if links.length > 0}
+			<div class="item-list">
+				{#each links as link, i (i)}
+					<div class="item-row">
+						<div class="item-content">
+							<span class="item-label">{link.label}</span>
+							<a href={link.url} target="_blank" class="item-url mono">{link.url}</a>
+						</div>
+						<button class="item-remove" onclick={() => removeLink(i)}>✕</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="add-row">
+			<input class="input" style="flex:1" bind:value={newLinkLabel} placeholder="Label (e.g. Portfolio)" />
+			<input class="input" style="flex:2" bind:value={newLinkUrl} placeholder="https://..." />
+			<button class="btn btn-secondary btn-sm" onclick={addLink}>Add</button>
 		</div>
 	</div>
 
+	<!-- FAQ -->
+	<div class="section card">
+		<h3 class="section-title">FAQ</h3>
+		<p class="section-hint">Common questions and your answers. Your concierge uses these first before generating a response.</p>
+
+		{#if faqs.length > 0}
+			<div class="item-list">
+				{#each faqs as faq, i (i)}
+					<div class="faq-item">
+						<div class="faq-q">Q: {faq.q}</div>
+						<div class="faq-a">A: {faq.a}</div>
+						<button class="item-remove" onclick={() => removeFaq(i)}>✕</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="add-col">
+			<input class="input" bind:value={newFaqQ} placeholder="Question visitors might ask" />
+			<input class="input" bind:value={newFaqA} placeholder="Your answer" />
+			<button class="btn btn-secondary btn-sm" onclick={addFaq} disabled={!newFaqQ.trim() || !newFaqA.trim()}>Add FAQ</button>
+		</div>
+	</div>
+
+	<!-- Relays -->
+	<div class="section card">
+		<h3 class="section-title">Relays</h3>
+		<p class="section-hint">Connect to multiple relays for redundancy.</p>
+		<div class="item-list">
+			{#each relays as url (url)}
+				<div class="item-row">
+					<span class="relay-url mono">{url}</span>
+					<button class="item-remove" onclick={() => removeRelay(url)} disabled={relays.length <= 1}>✕</button>
+				</div>
+			{/each}
+		</div>
+		<div class="add-row">
+			<input class="input mono" style="flex:1" bind:value={newRelay} placeholder="wss://relay.example.com"
+				onkeydown={(e) => { if (e.key === 'Enter') addRelay(); }} />
+			<button class="btn btn-secondary btn-sm" onclick={addRelay}>Add</button>
+		</div>
+	</div>
+
+	<!-- Identity -->
 	<div class="section card">
 		<h3 class="section-title">Identity</h3>
 		<label class="field">
 			<span class="field-label">Public address</span>
 			<div class="address-row">
 				<code class="mono address-text">{identityState.identity.publicKeyBase64}</code>
-				<button class="btn btn-secondary" onclick={copyAddress}>
+				<button class="btn btn-secondary btn-sm" onclick={copyAddress}>
 					{copied ? 'Copied!' : 'Copy'}
 				</button>
 			</div>
 		</label>
-		<label class="field">
-			<span class="field-label">Recovery phrase</span>
-			<div class="mnemonic-warn">
-				Your 12-word phrase is the only way to recover this identity.
-				It was shown during setup.
-			</div>
-		</label>
+		<div class="mnemonic-warn">
+			Your 12-word recovery phrase is the only way to recover this identity. It was shown during setup.
+		</div>
 	</div>
 
 	<div class="section">
@@ -150,39 +278,50 @@
 	h2 { color: var(--text-primary); margin: 0 0 20px; font-size: 1.3rem; }
 	h3.section-title {
 		color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;
-		text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 16px;
+		text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px;
 	}
-	.section { margin-bottom: 20px; padding: 18px; }
-	.field { display: block; margin-bottom: 14px; }
-	.field-label { display: block; color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 6px; }
+	.section { margin-bottom: 16px; padding: 18px; }
+	.section-hint { color: var(--text-tertiary); font-size: 0.75rem; margin-bottom: 14px; line-height: 1.4; }
+	.field { display: block; margin-bottom: 12px; }
+	.field-label { display: block; color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 5px; }
+
+	.item-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+	.item-row {
+		display: flex; justify-content: space-between; align-items: center;
+		padding: 8px 12px; background: var(--bg-input); border-radius: 6px;
+	}
+	.item-content { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+	.item-label { font-size: 0.8rem; color: var(--text-primary); font-weight: 500; }
+	.item-url { font-size: 0.7rem; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.item-remove {
+		background: none; border: none; color: var(--text-tertiary);
+		cursor: pointer; font-size: 0.8rem; padding: 2px 6px; flex-shrink: 0;
+	}
+	.item-remove:hover { color: #f87171; }
+	.item-remove:disabled { opacity: 0.2; }
+
+	.faq-item {
+		position: relative; padding: 10px 12px; background: var(--bg-input); border-radius: 6px;
+	}
+	.faq-q { font-size: 0.8rem; color: var(--text-primary); font-weight: 500; margin-bottom: 4px; }
+	.faq-a { font-size: 0.8rem; color: var(--text-secondary); }
+	.faq-item .item-remove { position: absolute; top: 8px; right: 8px; }
+
+	.add-row { display: flex; gap: 6px; align-items: center; }
+	.add-col { display: flex; flex-direction: column; gap: 6px; }
+	.btn-sm { padding: 6px 14px; font-size: 0.75rem; }
+
 	.address-row { display: flex; gap: 8px; align-items: center; }
 	.address-text {
-		flex: 1; font-size: 0.65rem; color: var(--accent);
+		flex: 1; font-size: 0.6rem; color: var(--accent);
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		padding: 8px 10px; background: var(--bg-input); border-radius: 6px;
-		border: 1px solid rgba(255,255,255,0.04);
 	}
+	.relay-url { font-size: 0.7rem; color: var(--text-primary); }
 	.mnemonic-warn { color: var(--text-tertiary); font-size: 0.8rem; line-height: 1.5; }
 	.btn-danger {
 		background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2);
 	}
 	.btn-danger:hover { background: rgba(239,68,68,0.25); box-shadow: none; transform: none; }
 	.warn-text { color: var(--text-tertiary); font-size: 0.75rem; margin-top: 8px; }
-
-	/* Relays */
-	.relay-hint { color: var(--text-tertiary); font-size: 0.8rem; margin-bottom: 12px; }
-	.relay-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-	.relay-item {
-		display: flex; justify-content: space-between; align-items: center;
-		padding: 8px 12px; background: var(--bg-input); border-radius: 6px;
-	}
-	.relay-url { font-size: 0.75rem; color: var(--text-primary); }
-	.relay-remove {
-		background: none; border: none; color: var(--text-tertiary);
-		cursor: pointer; font-size: 0.8rem; padding: 2px 6px;
-	}
-	.relay-remove:hover { color: #f87171; }
-	.relay-remove:disabled { opacity: 0.2; cursor: default; }
-	.relay-add { display: flex; gap: 8px; }
-	.relay-add .input { flex: 1; font-size: 0.75rem; }
 </style>

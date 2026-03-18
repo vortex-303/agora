@@ -34,9 +34,18 @@
 		return () => clearInterval(check);
 	});
 
-	let _tick = $derived(reactiveState.tick); // force re-render on delete
+	let _tick = $derived(reactiveState.tick);
 	let myKey = $derived(identityState.identity?.publicKeyBase64 || '');
 	let profile = $derived(appState.profileManager?.getProfile(myKey));
+
+	// Concierge info from localStorage
+	let concierge = $state<{ availability?: string; services?: string; preferredContact?: string; links?: Array<{label:string;url:string}>; faqs?: Array<{q:string;a:string}> }>({});
+	$effect(() => {
+		try {
+			const c = localStorage.getItem('riot_concierge_profile');
+			if (c) concierge = JSON.parse(c);
+		} catch {}
+	});
 	let displayName = $derived(profile?.name || myKey.slice(0, 12) + '...');
 	let location = $derived(appState.profileManager?.locationString(myKey));
 	let myUsername = $derived(profile?.name?.toLowerCase().replace(/\s+/g, '') || '');
@@ -177,6 +186,37 @@
 		<p class="link-hint">Share this link. Anyone can view your lobby and message you.</p>
 	</div>
 
+	<!-- Concierge info -->
+	{#if concierge.availability || concierge.services || concierge.preferredContact || (concierge.links && concierge.links.length > 0)}
+		<div class="concierge-info card">
+			{#if concierge.availability}
+				<div class="ci-row">
+					<span class="ci-icon">🕐</span>
+					<span class="ci-text">{concierge.availability}</span>
+				</div>
+			{/if}
+			{#if concierge.services}
+				<div class="ci-row">
+					<span class="ci-icon">💼</span>
+					<span class="ci-text">{concierge.services}</span>
+				</div>
+			{/if}
+			{#if concierge.preferredContact}
+				<div class="ci-row">
+					<span class="ci-icon">📧</span>
+					<span class="ci-text">{concierge.preferredContact}</span>
+				</div>
+			{/if}
+			{#if concierge.links && concierge.links.length > 0}
+				<div class="ci-links">
+					{#each concierge.links as link}
+						<a href={link.url} target="_blank" class="ci-link">{link.label} →</a>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Pins -->
 	<div class="section">
 		<div class="section-header">
@@ -306,6 +346,18 @@
 	.btn-secondary { background: var(--bg-raised); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.06); }
 	.btn-secondary:hover { border-color: var(--accent); color: var(--accent); box-shadow: none; transform: none; }
 	.link-hint { color: var(--text-tertiary); font-size: 0.7rem; }
+
+	.concierge-info { padding: 14px 16px; margin-bottom: 16px; }
+	.ci-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+	.ci-row:last-child { margin-bottom: 0; }
+	.ci-icon { font-size: 0.85rem; flex-shrink: 0; margin-top: 1px; }
+	.ci-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; }
+	.ci-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+	.ci-link {
+		font-size: 0.8rem; color: var(--accent); padding: 4px 10px;
+		background: var(--bg-input); border-radius: 6px; transition: all 0.15s;
+	}
+	.ci-link:hover { background: rgba(249,115,22,0.1); }
 
 	.section { margin-bottom: 24px; }
 	.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
