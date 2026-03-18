@@ -33,6 +33,7 @@ export class RelayClient {
   private statusHandlers: StatusHandler[] = [];
   private signalHandlers: SignalHandler[] = [];
   private peersHandlers: PeersHandler[] = [];
+  private usernameHandlers: Array<(msg: any) => void> = [];
   private pendingSubscriptions: Array<{ id: string; filters: SubscriptionFilter[] }> = [];
 
   constructor(url: string, identity: Identity) {
@@ -45,6 +46,7 @@ export class RelayClient {
   onStatusChange(handler: StatusHandler): void { this.statusHandlers.push(handler); }
   onSignal(handler: SignalHandler): void { this.signalHandlers.push(handler); }
   onPeers(handler: PeersHandler): void { this.peersHandlers.push(handler); }
+  onUsername(handler: (msg: any) => void): void { this.usernameHandlers.push(handler); }
 
   private emitEvent(subId: string, obj: SignedObject): void {
     for (const h of this.eventHandlers) h(subId, obj);
@@ -150,6 +152,11 @@ export class RelayClient {
         break;
       case 'peers':
         this.emitPeers(msg.peers);
+        break;
+      case 'username_result':
+      case 'username_lookup':
+        // Handle in listeners
+        for (const h of this.usernameHandlers) h(msg);
         break;
       case 'error':
         console.error('[Relay] Error:', msg.message);

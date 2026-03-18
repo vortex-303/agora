@@ -8,6 +8,7 @@ import { ObjectStore } from './store.js';
 import { SubscriptionManager } from './subscription.js';
 import { RelaySync } from './sync.js';
 import { RateLimiter } from './ratelimit.js';
+import { UsernameRegistry } from './usernames.js';
 import geoip from 'geoip-lite';
 
 interface GeoInfo {
@@ -39,12 +40,14 @@ export class RelayServer {
   private subscriptions: SubscriptionManager;
   private sync: RelaySync;
   private rateLimiter: RateLimiter;
+  private usernames: UsernameRegistry;
   private syncSubscribers: Set<string> = new Set(); // client IDs that want sync
 
   constructor(server: import('node:http').Server) {
     this.store = new ObjectStore();
     this.subscriptions = new SubscriptionManager();
     this.rateLimiter = new RateLimiter();
+    this.usernames = new UsernameRegistry();
 
     // Relay-to-relay sync
     this.sync = new RelaySync(this.store, (obj) => {
@@ -52,8 +55,8 @@ export class RelayServer {
     });
     this.sync.start();
 
-    // Cleanup rate limiter periodically
     setInterval(() => this.rateLimiter.cleanup(), 60_000);
+    setInterval(() => this.usernames.periodicSave(), 60_000);
 
     this.wss = new WSServer({ server });
     this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
@@ -137,6 +140,12 @@ export class RelayServer {
       case 'relay_sync_object':
         this.handleRelaySyncObject(client, msg);
         break;
+      case 'claim_username':
+        this.handleClaimUsername(client, msg);
+        break;
+      case 'lookup_username':
+        this.handleLookupUsername(client, msg);
+        break;
       default:
         this.send(client.ws, { action: 'error', message: `Unknown action: ${msg.action}` });
     }
@@ -198,6 +207,9 @@ export class RelayServer {
       this.send(client.ws, { action: 'error', message: 'Author mismatch' });
       return;
     }
+
+    // Touch username activity
+    if (client.publicKey) this.usernames.touchActivity(client.publicKey);
 
     const isNew = this.store.put(obj);
     if (isNew) {
@@ -320,6 +332,38 @@ export class RelayServer {
         if (c) this.send(c.ws, { action: 'relay_sync_object', object: obj });
       }
     }
+  }
+
+  // Username registry
+  private handleClaimUsername(client: ClientState, msg: { username: string }): void {
+    if (!client.authenticated || !client.publicKey) {
+      this.send(client.ws, { action: 'error', message: 'Not authenticated' });
+      return;
+    }
+    const result = this.usernames.claim(msg.username, client.publicKey);
+    this.send(client.ws, {
+      action: 'username_result',
+      username: msg.username?.toLowerCase().trim(),
+      ...result,
+    });
+  }
+
+  private handleLookupUsername(client: ClientState, msg: { username?: string; publicKey?: string }): void {
+    let entry = null;
+    let username = null;
+    if (msg.username) {
+      entry = this.usernames.lookup(msg.username);
+      username = msg.username.toLowerCase().trim();
+    } else if (msg.publicKey) {
+      username = this.usernames.lookupByKey(msg.publicKey);
+      if (username) entry = this.usernames.lookup(username);
+    }
+    this.send(client.ws, {
+      action: 'username_lookup',
+      username,
+      publicKey: entry?.publicKey || null,
+      found: !!entry,
+    });
   }
 
   private send(ws: WebSocket, msg: object): void {

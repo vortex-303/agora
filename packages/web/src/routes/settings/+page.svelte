@@ -61,11 +61,27 @@
 		}));
 	}
 
+	let usernameError = $state('');
+
 	function saveProfile() {
 		const identity = identityState.identity;
 		const fm = appState.feedManager;
 		const pm = appState.profileManager;
 		if (!identity || !fm || !pm) return;
+		usernameError = '';
+
+		// Claim username on relay
+		if (username.trim()) {
+			fm.relay.send({ action: 'claim_username', username: username.trim() });
+			fm.relay.onUsername((msg: any) => {
+				if (msg.action === 'username_result') {
+					if (!msg.ok) {
+						usernameError = msg.error || 'Could not claim username';
+					}
+				}
+			});
+		}
+
 		const existing = pm.getProfile(identity.publicKeyBase64);
 		const state = fm.getAuthorState(identity.publicKeyBase64);
 		const obj = createObject({
@@ -148,6 +164,11 @@
 		<label class="field">
 			<span class="field-label">Username</span>
 			<input class="input" bind:value={username} placeholder="Anonymous" />
+			<span class="field-hint">This becomes your Riot Link: riotp2p.com/{username.toLowerCase().replace(/\s+/g, '') || 'yourname'}</span>
+			{#if usernameError}
+				<span class="field-error">{usernameError}</span>
+			{/if}
+			<span class="field-hint">Usernames are reserved for 1 year. Stay active (post, message, pin) and it auto-renews. Inactive for 90+ days = name released.</span>
 		</label>
 		<label class="field">
 			<span class="field-label">Bio</span>
@@ -284,6 +305,8 @@
 	.section-hint { color: var(--text-tertiary); font-size: 0.75rem; margin-bottom: 14px; line-height: 1.4; }
 	.field { display: block; margin-bottom: 12px; }
 	.field-label { display: block; color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 5px; }
+	.field-hint { display: block; color: var(--text-tertiary); font-size: 0.7rem; margin-top: 4px; }
+	.field-error { display: block; color: #f87171; font-size: 0.75rem; margin-top: 4px; }
 
 	.item-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 	.item-row {

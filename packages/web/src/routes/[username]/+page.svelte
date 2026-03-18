@@ -13,40 +13,44 @@
 	let messageSent = $state(false);
 	let copied = $state(false);
 
-	// Resolve username to public key
+	// Resolve username to public key via relay + local profiles
 	onMount(() => {
 		const check = setInterval(async () => {
 			const pm = appState.profileManager;
 			const fm = appState.feedManager;
 			if (pm && fm) {
-				// Search all profiles for this username
+				clearInterval(check);
+
+				// 1. Check local profile cache first (instant)
 				const all = pm.getAllProfiles();
 				const found = all.find(p => p.name?.toLowerCase() === username.toLowerCase());
-
-				// Also check if the param is itself a public key
-				if (!found && username.length > 20) {
-					ownerKey = username;
-				} else if (found) {
+				if (found) {
 					ownerKey = found.publicKey;
+				} else if (username.length > 20) {
+					// Raw public key in URL
+					ownerKey = username;
 				}
 
-				if (ownerKey) {
-					clearInterval(check);
-					await fm.subscribe(`lobby:${ownerKey}`, [{ authors: [ownerKey] }]);
-					fm.onObject((obj) => addToFeed(obj));
+				// 2. Also ask relay for authoritative lookup
+				fm.relay.send({ action: 'lookup_username', username });
+				fm.relay.onUsername((msg: any) => {
+					if (msg.action === 'username_lookup' && msg.username === username.toLowerCase() && msg.found) {
+						ownerKey = msg.publicKey;
+					}
+				});
+
+				// 3. Wait a moment for relay response, then load
+				setTimeout(async () => {
+					if (ownerKey) {
+						await fm.subscribe(`lobby:${ownerKey}`, [{ authors: [ownerKey] }]);
+						fm.onObject((obj) => addToFeed(obj));
+					}
 					loaded = true;
-				}
+				}, 500);
 			}
-		}, 100);
+		}, 50);
 
-		// Timeout — if username not found after 5s, show not found
-		setTimeout(() => {
-			if (!ownerKey) {
-				clearInterval(check);
-				loaded = true;
-			}
-		}, 5000);
-
+		setTimeout(() => { if (!loaded) { loaded = true; } }, 5000);
 		return () => clearInterval(check);
 	});
 
