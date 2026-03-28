@@ -1,0 +1,36 @@
+# Agora Relay — Community Node
+# Run your own relay in one command:
+#   docker compose up -d
+#
+# Your relay will sync with the public Agora network automatically.
+# Visit http://localhost:9800 to see your relay dashboard.
+# Visit http://localhost:9800/network to see all relays in the network.
+#
+# Configuration:
+#   RELAY_NAME        — Your relay's display name (shown on /network)
+#   RELAY_DESCRIPTION — Short description
+#   RELAY_CONTACT     — Your contact info (email, URL, etc.)
+#   RELAY_URL         — Public wss:// URL (so other relays can reach you)
+#
+# Full docs: https://github.com/vortex-303/agora#run-a-relay
+
+services:
+  relay:
+    image: ghcr.io/vortex-303/agora-relay:latest
+    ports:
+      - "9800:9800"
+    volumes:
+      - relay_data:/data
+    environment:
+      - PORT=9800
+      - DATA_DIR=/data
+      - PEER_RELAYS=wss://agora-relay.fly.dev,wss://agora-relay-eu.fly.dev
+      # Uncomment and customize:
+      # - RELAY_NAME=My Agora Relay
+      # - RELAY_DESCRIPTION=Community relay node
+      # - RELAY_CONTACT=you@example.com
+      # - RELAY_URL=wss://your-domain.com
+    restart: unless-stopped
+
+volumes:
+  relay_data:

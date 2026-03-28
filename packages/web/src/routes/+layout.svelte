@@ -22,6 +22,14 @@
 		if (typeof window === 'undefined') return DEFAULT_RELAYS;
 		const stored = localStorage.getItem('agora_relays');
 		if (stored) { try { return JSON.parse(stored); } catch {} }
+		// Auto-detect host relay when served from a relay node
+		const host = window.location.host;
+		const isRelayHost = DEFAULT_RELAYS.some(r => r.includes(host));
+		if (!isRelayHost && host !== 'localhost:5173') {
+			const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+			const hostRelay = `${proto}//${host}`;
+			return [hostRelay, ...DEFAULT_RELAYS.filter(r => r !== hostRelay)];
+		}
 		if (window.location.hostname === 'localhost') return ['ws://localhost:9800', ...DEFAULT_RELAYS];
 		return [...DEFAULT_RELAYS];
 	}

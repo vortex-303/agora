@@ -26,25 +26,51 @@ node packages/relay/dist/index.js &
 pnpm --filter @agora/web dev
 ```
 
-## Run Your Own Relay
+## Run a Relay
 
-### Docker
+Support the Agora network by running a relay node. Relays store and forward signed objects — they can't read encrypted content or forge messages.
 
+**See all active relays:** Visit `/network` on any relay (e.g. https://agora-relay.fly.dev/network)
+
+### One-command Docker setup
+
+```bash
+curl -sL https://raw.githubusercontent.com/vortex-303/agora/main/deploy/docker-compose.community.yml -o docker-compose.yml
+docker compose up -d
+```
+
+Your relay starts on port 9800 and auto-syncs with the public Agora network. Visit `http://localhost:9800` to see your relay dashboard.
+
+### Configure your relay
+
+Edit `docker-compose.yml` and uncomment the environment variables:
+
+```yaml
+environment:
+  - RELAY_NAME=My Agora Relay
+  - RELAY_DESCRIPTION=Community relay in Tokyo
+  - RELAY_CONTACT=you@example.com
+  - RELAY_URL=wss://your-domain.com
+```
+
+Setting `RELAY_URL` registers your relay on the public network status page so others can discover it.
+
+### Other methods
+
+**Docker (manual build):**
 ```bash
 docker build -t agora-relay .
 docker run -p 9800:9800 -v agora-data:/data agora-relay
 ```
 
-### Fly.io
-
+**Fly.io:**
 ```bash
 fly launch --config fly.toml
 fly volumes create agora_data --size 1
 fly deploy
 ```
 
-### From Source
-
+**From source:**
 ```bash
 pnpm install
 pnpm --filter @agora/core build
@@ -52,13 +78,27 @@ pnpm --filter @agora/relay build
 DATA_DIR=./data node packages/relay/dist/index.js
 ```
 
-#### Relay Environment Variables
+### Relay endpoints
+
+| Endpoint | Description |
+|---|---|
+| `/` | Relay dashboard |
+| `/health` | Health check (JSON) |
+| `/info` | Relay metadata + live stats (JSON) |
+| `/network` | Public network status page (all relays) |
+| `/relays` | Registry of all known relays (JSON API) |
+
+### Environment variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `9800` | Listen port |
 | `DATA_DIR` | `/data` | JSONL storage directory |
 | `PEER_RELAYS` | — | Comma-separated relay URLs for sync |
+| `RELAY_NAME` | — | Display name for your relay |
+| `RELAY_DESCRIPTION` | — | Short description |
+| `RELAY_CONTACT` | — | Your contact info |
+| `RELAY_URL` | — | Public `wss://` URL (enables network registration) |
 | `MAX_OBJECTS` | `10000` | Max stored objects |
 | `MAX_OBJECTS_PER_AUTHOR` | `1000` | Per-author limit |
 | `OBJECT_TTL` | 7 days | Object expiry |

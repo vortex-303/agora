@@ -9,6 +9,7 @@ import { SubscriptionManager } from './subscription.js';
 import { RelaySync } from './sync.js';
 import { RateLimiter } from './ratelimit.js';
 import { UsernameRegistry } from './usernames.js';
+import { RelayRegistry } from './registry.js';
 import geoip from 'geoip-lite';
 
 interface GeoInfo {
@@ -41,6 +42,7 @@ export class RelayServer {
   private sync: RelaySync;
   private rateLimiter: RateLimiter;
   private usernames: UsernameRegistry;
+  private registry: RelayRegistry;
   private syncSubscribers: Set<string> = new Set(); // client IDs that want sync
 
   constructor(server: import('node:http').Server) {
@@ -48,6 +50,7 @@ export class RelayServer {
     this.subscriptions = new SubscriptionManager();
     this.rateLimiter = new RateLimiter();
     this.usernames = new UsernameRegistry();
+    this.registry = new RelayRegistry(() => this.getInfo());
 
     // Relay-to-relay sync
     this.sync = new RelaySync(this.store, (obj) => {
@@ -60,6 +63,9 @@ export class RelayServer {
 
     this.wss = new WSServer({ server });
     this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
+
+    // Start relay registry (announces to peers, health checks)
+    this.registry.start();
 
     console.log(`[Relay] WebSocket server ready (${this.store.size} objects in store)`);
   }
@@ -389,6 +395,45 @@ export class RelayServer {
       uptime: Math.floor(process.uptime()),
       region: process.env.FLY_REGION || process.env.PRIMARY_REGION || 'local',
     };
+  }
+
+  getInfo() {
+    const stats = this.getStats();
+    return {
+      name: config.relayName || undefined,
+      description: config.relayDescription || undefined,
+      contact: config.relayContact || undefined,
+      url: config.relayUrl || undefined,
+      software: '@agora/relay',
+      version: '0.2.0',
+      region: stats.region,
+      uptime: stats.uptime,
+      clients: stats.clients,
+      authenticated: stats.authenticated,
+      objects: stats.objects,
+      countries: stats.countries,
+      syncPeers: stats.syncPeers,
+      peerRelays: stats.peerRelays,
+    };
+  }
+
+  getRegistry() {
+    return this.registry;
+  }
+
+  /** Detailed dashboard data for the operator UI */
+  getDashboardData() {
+    const stats = this.getStats();
+    const peers: Array<{ publicKey: string; geo?: GeoInfo; ip: string }> = [];
+    for (const c of this.clients.values()) {
+      if (c.authenticated && c.publicKey && !c.isSyncPeer) {
+        peers.push({ publicKey: c.publicKey, geo: c.geo, ip: c.ip });
+      }
+    }
+    const relays = this.registry.getAll();
+    const networkUsers = relays.reduce((sum, r) => sum + (r.authenticated || 0), 0);
+    const networkObjects = relays.reduce((sum, r) => sum + (r.objects || 0), 0);
+    return { ...stats, peers, relays, networkUsers, networkObjects };
   }
 }
 

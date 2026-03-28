@@ -8,6 +8,12 @@ export const config = {
   // Relay-to-relay sync: comma-separated list of peer relay WebSocket URLs
   peerRelays: (process.env.PEER_RELAYS || '').split(',').filter(Boolean),
 
+  // Relay operator metadata
+  relayName: process.env.RELAY_NAME || '',
+  relayDescription: process.env.RELAY_DESCRIPTION || '',
+  relayContact: process.env.RELAY_CONTACT || '',
+  relayUrl: process.env.RELAY_URL || '', // public wss:// URL for this relay
+
   // Rate limiting
   rateLimit: {
     windowMs: 60_000, // 1 minute window
