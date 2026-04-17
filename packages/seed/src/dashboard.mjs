@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export function startDashboard(port, store, node, startTime) {
+export function startDashboard(port, store, node, startTime, dhtPublisher) {
   const server = createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${port}`);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,6 +26,7 @@ export function startDashboard(port, store, node, startTime) {
         storageMB: Math.round(storageBytes / 1024 / 1024 * 10) / 10,
         topics: node.getTopics(),
         neighborhood: store.getNeighborhoodStats(),
+        dht: dhtPublisher ? dhtPublisher.getStats() : null,
       }));
       return;
     }
@@ -108,10 +109,11 @@ function getDashboardHTML() {
   <div class="card"><div class="stat-val" id="served">-</div><div class="stat-label">served</div></div>
 </div>
 
-<div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+<div class="grid" style="grid-template-columns: repeat(4, 1fr);">
   <div class="card"><div class="stat-val" id="authors">-</div><div class="stat-label">authors hosted</div></div>
   <div class="card"><div class="stat-val" id="received">-</div><div class="stat-label">received</div></div>
   <div class="card"><div class="stat-val" id="uptime">-</div><div class="stat-label">uptime</div></div>
+  <div class="card"><div class="stat-val" id="dhtNodes">-</div><div class="stat-label">DHT nodes</div></div>
 </div>
 
 <div class="section">
@@ -151,6 +153,7 @@ async function refresh() {
     document.getElementById('received').textContent = stats.received.toLocaleString();
     document.getElementById('authors').textContent = stats.authors;
     document.getElementById('uptime').textContent = fmt(stats.uptime);
+    document.getElementById('dhtNodes').textContent = stats.dht ? stats.dht.dhtNodes : '-';
 
     const topicsEl = document.getElementById('topics');
     topicsEl.innerHTML = stats.topics.map(t =>

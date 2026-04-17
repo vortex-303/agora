@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { SwarmNode } from './swarm-node.mjs';
 import { ObjectStore } from './store.mjs';
 import { startDashboard } from './dashboard.mjs';
+import { DHTPublisher } from './dht-publisher.mjs';
 
 const args = process.argv.slice(2);
 let topics = [];
@@ -116,8 +117,12 @@ console.log(`[riot-seed] Budget: ${budgetMB}MB`);
 console.log(`[riot-seed] Objects stored: ${store.count()}`);
 console.log(`[riot-seed] Authors hosted: ${store.getAuthorCount()}`);
 
+// Start DHT publisher
+const dhtPublisher = new DHTPublisher(store);
+await dhtPublisher.start();
+
 // Start dashboard
-startDashboard(port, store, node, startTime);
+startDashboard(port, store, node, startTime, dhtPublisher);
 
 console.log(`[riot-seed] Press Ctrl+C to stop\n`);
 
@@ -131,15 +136,17 @@ setInterval(() => {
   console.log(`[riot-seed] peers:${stats.peers} objects:${store.count()} served:${stats.served} received:${stats.received} swarms:${stats.swarms}`);
 }, 30_000);
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n[riot-seed] Shutting down...');
   node.destroy();
+  await dhtPublisher.destroy();
   store.save();
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   node.destroy();
+  await dhtPublisher.destroy();
   store.save();
   process.exit(0);
 });

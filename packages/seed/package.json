@@ -9,7 +9,9 @@
     "start": "node src/index.mjs"
   },
   "dependencies": {
+    "@noble/curves": "^1.8.0",
     "@noble/hashes": "^1.7.0",
+    "bittorrent-dht": "^11.0.11",
     "node-datachannel": "^0.32.0"
   }
 }
