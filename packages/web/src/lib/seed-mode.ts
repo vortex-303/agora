@@ -99,7 +99,7 @@ export class SeedMode {
       this.emitChange();
     }, 30_000);
 
-    console.log('[SeedMode] Activated — seeding network content');
+    // SeedMode activated
   }
 
   private deactivate(): void {
@@ -109,7 +109,7 @@ export class SeedMode {
     this.discoveryTimer = null;
     this.uptimeStart = null;
     this.saveStats();
-    console.log('[SeedMode] Deactivated');
+    // SeedMode deactivated
   }
 
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;

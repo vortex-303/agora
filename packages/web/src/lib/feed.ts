@@ -137,13 +137,21 @@ export class FeedManager {
     };
   }
 
+  // Send to specific pubkey (for DMs, read receipts)
+  gossipTo(obj: SignedObject, pubkey: string): boolean {
+    return this.gossip.gossipTo(obj, pubkey);
+  }
+
   async publish(obj: SignedObject): Promise<void> {
     await this.ingestObject(obj);
-    this.gossip.gossip(obj);
+
+    // DMs and read receipts are point-to-point, don't broadcast
+    if (obj.body.type !== 'dm' && obj.body.type !== 'read_receipt') {
+      this.gossip.gossip(obj);
+    }
 
     if (this.swarmManager.getConnectedCount() === 0) {
       await this.outbox.add(obj);
-      console.log('[Feed] Queued object in outbox (no peers)');
     }
   }
 }

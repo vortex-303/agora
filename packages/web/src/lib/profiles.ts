@@ -40,7 +40,7 @@ export class ProfileManager {
     // Re-broadcast profile to every new peer that connects
     this.feedManager.swarmManager.onPeerChange(() => {
       if (this.myProfileObj) {
-        console.log('[Profile] Broadcasting profile to peers');
+        // Re-broadcast profile to new peers
         this.feedManager.swarmManager.broadcast(
           JSON.stringify({ type: 'gossip', object: this.myProfileObj })
         );

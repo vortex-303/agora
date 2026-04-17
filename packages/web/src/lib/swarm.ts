@@ -55,6 +55,8 @@ interface Peer {
   trackerId: string;
   pc: RTCPeerConnection;
   channel: RTCDataChannel;
+  score: number;        // reliability score: starts at 0, +1 valid object, -5 invalid
+  invalidCount: number; // consecutive invalid objects
   pubkey: string | null;
   ready: boolean;
 }
@@ -108,53 +110,52 @@ export class SwarmManager {
     const tid = this.pubkeyMap.get(pubkey);
     if (tid) {
       const peer = this.peers.get(tid);
-      if (peer?.ready && peer.channel.readyState === 'open') {
-        peer.channel.send(data);
-        return true;
-      }
+      if (peer?.ready && this.safeSend(peer.channel, data)) return true;
     }
     // Fallback: relay through any connected peer
     const relayMsg = JSON.stringify({ _relay: { to: pubkey, data } });
     for (const peer of this.peers.values()) {
-      if (peer.ready && peer.channel.readyState === 'open') {
-        peer.channel.send(relayMsg);
-        return true;
-      }
+      if (peer.ready && this.safeSend(peer.channel, relayMsg)) return true;
     }
     return false;
   }
 
   isPubkeyConnected(pubkey: string): boolean {
-    // Direct connection
     const tid = this.pubkeyMap.get(pubkey);
-    if (tid) {
-      const peer = this.peers.get(tid);
-      if (peer?.ready && peer.channel.readyState === 'open') return true;
-    }
-    // Can relay through any peer
+    if (!tid) return false;
+    const peer = this.peers.get(tid);
+    return (peer?.ready && peer.channel.readyState === 'open') || false;
+  }
+
+  // Check if we can reach a pubkey (directly or via relay)
+  canReachPubkey(pubkey: string): boolean {
+    if (this.isPubkeyConnected(pubkey)) return true;
+    // Can relay through any connected peer
     for (const peer of this.peers.values()) {
       if (peer.ready && peer.channel.readyState === 'open') return true;
     }
     return false;
   }
 
+  private safeSend(channel: RTCDataChannel, data: string): boolean {
+    if (channel.readyState !== 'open') return false;
+    // Backpressure: don't send if buffer is too full (16KB threshold)
+    if (channel.bufferedAmount > 16384) return false;
+    try { channel.send(data); return true; }
+    catch { return false; }
+  }
+
   broadcast(data: string): number {
     let sent = 0;
     for (const peer of this.peers.values()) {
-      if (peer.ready && peer.channel.readyState === 'open') {
-        peer.channel.send(data);
-        sent++;
-      }
+      if (peer.ready && this.safeSend(peer.channel, data)) sent++;
     }
     return sent;
   }
 
   sendToPeer(trackerId: string, data: string): boolean {
     const peer = this.peers.get(trackerId);
-    if (peer?.ready && peer.channel.readyState === 'open') {
-      peer.channel.send(data);
-      return true;
-    }
+    if (peer?.ready) return this.safeSend(peer.channel, data);
     return false;
   }
 
@@ -166,6 +167,24 @@ export class SwarmManager {
 
   getConnectedPubkeys(): string[] {
     return [...this.pubkeyMap.keys()];
+  }
+
+  scorePeer(trackerId: string, delta: number): void {
+    const peer = this.peers.get(trackerId);
+    if (!peer) return;
+    peer.score += delta;
+    if (delta < 0) {
+      peer.invalidCount++;
+      // Disconnect peers that send too many invalid objects
+      if (peer.invalidCount >= 10) {
+        console.warn(`[Swarm] Disconnecting bad peer (score: ${peer.score})`);
+        peer.channel.close();
+        peer.pc.close();
+        this.removePeer(trackerId);
+      }
+    } else {
+      peer.invalidCount = 0;
+    }
   }
 
   getSwarmTopics(): string[] {
@@ -319,7 +338,7 @@ export class SwarmManager {
   private activatePeer(trackerId: string, pc: RTCPeerConnection, channel: RTCDataChannel): void {
     if (this.peers.has(trackerId)) return;
 
-    const peer: Peer = { trackerId, pc, channel, pubkey: null, ready: false };
+    const peer: Peer = { trackerId, pc, channel, pubkey: null, ready: false, score: 0, invalidCount: 0 };
 
     const onReady = () => {
       if (this.peers.has(trackerId)) return;

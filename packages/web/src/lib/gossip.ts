@@ -14,12 +14,11 @@ export class GossipManager {
   private cache: CacheManager | null = null;
   private seen = new Set<string>();
   private objectHandlers: GossipObjectHandler[] = [];
+  private watermarkReplied = new Set<string>();
 
   private _objectsServed = 0;
   private _objectsReceived = 0;
   private _bytesServed = 0;
-
-  private watermarkSent = new Set<string>();
 
   constructor(swarm: SwarmManager) {
     this.swarm = swarm;
@@ -29,7 +28,7 @@ export class GossipManager {
         const msg = JSON.parse(data);
         switch (msg.type) {
           case 'gossip':
-            if (msg.object) this.handleGossip(msg.object);
+            if (msg.object) this.handleGossip(msg.object, peerId);
             break;
           case 'watermark':
             if (msg.authors) this.handleWatermark(peerId, msg.authors);
@@ -38,7 +37,7 @@ export class GossipManager {
             if (msg.author) this.handleRequest(peerId, msg.author, msg.afterSeq || 0);
             break;
           case 'response':
-            if (msg.objects) this.handleResponse(msg.objects);
+            if (msg.objects) this.handleResponse(msg.objects, peerId);
             break;
         }
       } catch { /* ignore malformed */ }
@@ -61,10 +60,18 @@ export class GossipManager {
     this.seen.add(id);
   }
 
+  // Broadcast to all peers (for non-DM objects like profiles, posts)
   gossip(obj: SignedObject): void {
     this.seen.add(obj.id);
     const msg = JSON.stringify({ type: 'gossip', object: obj });
     this.swarm.broadcast(msg);
+  }
+
+  // Send to a specific peer only (for DMs, read receipts)
+  gossipTo(obj: SignedObject, pubkey: string): boolean {
+    this.seen.add(obj.id);
+    const msg = JSON.stringify({ type: 'gossip', object: obj });
+    return this.swarm.sendToPubkey(pubkey, msg);
   }
 
   private async buildWatermarks(): Promise<Watermarks> {
@@ -86,32 +93,23 @@ export class GossipManager {
   private async sendWatermarksToNewPeers(): Promise<void> {
     const authors = await this.buildWatermarks();
     const authorCount = Object.keys(authors).length;
-    if (authorCount === 0) {
-      console.log('[Gossip] No watermarks to send (empty cache)');
-      return;
-    }
-
+    if (authorCount === 0) return;
     const msg = JSON.stringify({ type: 'watermark', authors });
-    const sent = this.swarm.broadcast(msg);
-    console.log(`[Gossip] Sent watermarks (${authorCount} authors) to ${sent} peers`);
+    this.swarm.broadcast(msg);
   }
-
-  private watermarkReplied = new Set<string>();
 
   private async handleWatermark(peerId: string, peerAuthors: Watermarks): Promise<void> {
     const myWatermarks = await this.buildWatermarks();
 
-    let requested = 0;
     for (const [author, peerSeq] of Object.entries(peerAuthors)) {
       const mySeq = myWatermarks[author] || 0;
       if (peerSeq > mySeq) {
         this.swarm.sendToPeer(peerId,
           JSON.stringify({ type: 'request', author, afterSeq: mySeq }));
-        requested++;
       }
     }
 
-    // Only reply with our watermarks ONCE per peer (prevent infinite loop)
+    // Only reply with our watermarks ONCE per peer
     if (!this.watermarkReplied.has(peerId)) {
       this.watermarkReplied.add(peerId);
       const myAuthorCount = Object.keys(myWatermarks).length;
@@ -127,15 +125,14 @@ export class GossipManager {
 
     try {
       const objects = await this.cache.listByTimestamp();
-      // Priority: dm > read_receipt > profile > encrypted_state > post > other
       const PRIORITY: Record<string, number> = { dm: 0, read_receipt: 1, profile: 2, encrypted_state: 3, post: 4 };
       const matching = objects
         .filter(o => o.body.author === author && o.body.seq > afterSeq)
         .sort((a, b) => {
           const pa = PRIORITY[a.body.type] ?? 5;
           const pb = PRIORITY[b.body.type] ?? 5;
-          if (pa !== pb) return pa - pb; // priority first
-          return a.body.seq - b.body.seq; // then sequence
+          if (pa !== pb) return pa - pb;
+          return a.body.seq - b.body.seq;
         })
         .slice(0, 50);
 
@@ -148,34 +145,42 @@ export class GossipManager {
     } catch { /* cache not ready */ }
   }
 
-  private handleResponse(objects: SignedObject[]): void {
-    let ingested = 0;
+  private handleResponse(objects: SignedObject[], peerId: string): void {
     for (const obj of objects) {
       if (this.seen.has(obj.id)) continue;
       this.seen.add(obj.id);
 
       const result = validateObject(obj);
-      if (!result.valid) continue;
+      if (!result.valid) {
+        this.swarm.scorePeer(peerId, -5);
+        continue;
+      }
 
+      this.swarm.scorePeer(peerId, 1);
       this._objectsReceived++;
-      ingested++;
       for (const h of this.objectHandlers) h(obj);
     }
-    if (ingested > 0) console.log(`[Gossip] Received ${ingested} objects from peer (types: ${objects.filter(o => !this.seen.has(o.id) || ingested > 0).map(o => o.body.type).slice(0,5).join(',')})`);
   }
 
-  private handleGossip(obj: SignedObject): void {
+  private handleGossip(obj: SignedObject, peerId: string): void {
     if (this.seen.has(obj.id)) return;
     this.seen.add(obj.id);
 
     const result = validateObject(obj);
-    if (!result.valid) return;
+    if (!result.valid) {
+      this.swarm.scorePeer(peerId, -5);
+      return;
+    }
 
+    this.swarm.scorePeer(peerId, 1);
     this._objectsReceived++;
     for (const h of this.objectHandlers) h(obj);
 
-    const msg = JSON.stringify({ type: 'gossip', object: obj });
-    this.swarm.broadcast(msg);
+    // Only forward non-private objects
+    if (obj.body.type !== 'dm' && obj.body.type !== 'read_receipt') {
+      const msg = JSON.stringify({ type: 'gossip', object: obj });
+      this.swarm.broadcast(msg);
+    }
   }
 
   getStats() {

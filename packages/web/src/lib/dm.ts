@@ -106,7 +106,7 @@ export class DMManager {
     }
   }
 
-  private async sendReadReceipt(messageId: string): Promise<void> {
+  private async sendReadReceipt(messageId: string, senderPubkey: string): Promise<void> {
     const state = this.feedManager.getAuthorState(this.identity.publicKeyBase64);
     const obj = createObject({
       author: this.identity.publicKeyBase64,
@@ -116,6 +116,9 @@ export class DMManager {
       seq: state.seq + 1,
       prev: state.lastId,
     });
+    // Send directly to the message sender, not broadcast
+    this.feedManager.gossipTo(obj, senderPubkey);
+    // Also store in cache for sync
     await this.feedManager.publish(obj);
   }
 
@@ -176,7 +179,7 @@ export class DMManager {
     // Send read receipt for incoming messages we just decrypted
     if (isIncoming && !this.readReceiptsSent.has(obj.id)) {
       this.readReceiptsSent.add(obj.id);
-      this.sendReadReceipt(obj.id);
+      this.sendReadReceipt(obj.id, obj.body.author);
     }
 
     const dm: DecryptedDM = {
@@ -243,13 +246,8 @@ export class DMManager {
       prev: state.lastId,
     });
 
-    // Try direct send to recipient, also gossip as fallback
-    const isConnected = this.feedManager.swarmManager.isPubkeyConnected(recipientPublicKey);
-    const directSent = isConnected && this.feedManager.swarmManager.sendToPubkey(
-      recipientPublicKey,
-      JSON.stringify({ type: 'gossip', object: obj })
-    );
-    console.log(`[DM] Send to ${recipientPublicKey.slice(0, 8)}... direct=${directSent} connected=${isConnected} connectedPubkeys=${this.feedManager.swarmManager.getConnectedPubkeys().map(k => k.slice(0, 8)).join(',')}`);
+    // Send directly to recipient (not broadcast to all peers)
+    const directSent = this.feedManager.gossipTo(obj, recipientPublicKey);
     const status: DMStatus = directSent ? 'sent' : 'queued';
     if (directSent) this.sentIds.add(obj.id);
 
