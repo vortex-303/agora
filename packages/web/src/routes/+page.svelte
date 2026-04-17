@@ -46,9 +46,12 @@
 	let displayName = $derived(profile?.name || myKey.slice(0, 12) + '...');
 	let location = $derived(appState.profileManager?.locationString(myKey));
 	let myUsername = $derived(profile?.name?.toLowerCase().replace(/\s+/g, '') || '');
+	let vanitySlug = $derived(
+		myUsername ? `${myUsername}.${myKey.slice(0, 6)}` : ''
+	);
 	let lobbyUrl = $derived(
 		typeof window !== 'undefined'
-			? (myUsername ? `${window.location.origin}/${myUsername}` : `${window.location.origin}/p/${encodeURIComponent(myKey)}`)
+			? (vanitySlug ? `${window.location.origin}/${vanitySlug}` : `${window.location.origin}/p/${encodeURIComponent(myKey)}`)
 			: ''
 	);
 

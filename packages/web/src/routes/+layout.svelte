@@ -105,7 +105,8 @@
 	<title>Riot</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="manifest" href="/manifest.json" />
-	<meta name="theme-color" content="#f97316" />
+	<meta name="theme-color" content="#07070a" />
+	<meta name="mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 	<meta name="apple-mobile-web-app-title" content="Riot" />
@@ -276,29 +277,39 @@
 		.sidebar {
 			width: 100%; min-width: 100%; flex-shrink: 0;
 			flex-direction: row; align-items: center;
-			border-right: none; border-bottom: 1px solid rgba(255,255,255,0.04);
+			border-right: none;
+			border-top: 1px solid rgba(255,255,255,0.06);
 			padding: 0; height: auto;
 			position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
 			background: var(--bg-root);
+			padding-bottom: env(safe-area-inset-bottom, 0);
 		}
 		.sidebar-top { display: none; }
 		.sidebar-bottom { display: none; }
 		.sidebar-nav {
 			flex-direction: row; justify-content: space-around;
-			padding: 6px 0; gap: 0; width: 100%;
+			padding: 4px 0; gap: 0; width: 100%;
 		}
 		.nav-item {
-			flex-direction: column; gap: 2px; padding: 6px 12px;
-			font-size: 0.65rem; border-radius: 0;
+			flex-direction: column; gap: 2px;
+			padding: 8px 16px;
+			font-size: 0.6rem; border-radius: 0;
+			min-width: 60px; text-align: center;
+			-webkit-tap-highlight-color: transparent;
 		}
-		.nav-icon { font-size: 1.1rem; }
+		.nav-item.active { background: none; }
+		.nav-icon { font-size: 1.2rem; }
+		.nav-badge { font-size: 0.5rem; min-width: 14px; height: 14px; }
 
 		.main-panel {
-			padding: 16px 12px; padding-bottom: 70px;
-			height: calc(100vh - 56px);
+			padding: 12px;
+			padding-bottom: calc(60px + env(safe-area-inset-bottom, 0));
+			height: 100vh;
+			-webkit-overflow-scrolling: touch;
 		}
 		.main-panel.main-fluid {
-			padding: 0; padding-bottom: 56px;
+			padding: 0;
+			padding-bottom: calc(56px + env(safe-area-inset-bottom, 0));
 		}
 	}
 </style>

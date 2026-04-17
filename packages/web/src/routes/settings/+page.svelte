@@ -130,8 +130,8 @@
 		<label class="field">
 			<span class="field-label">Display Name</span>
 			<input class="input" bind:value={username} placeholder="Anonymous" />
-			<span class="field-hint">This becomes your Riot Link: riotp2p.com/{username.toLowerCase().replace(/\s+/g, '') || 'yourname'}</span>
-			<span class="field-hint">Names are not unique — your public key is your true identity.</span>
+			<span class="field-hint">Your Riot Link: riotp2p.com/{(username.toLowerCase().replace(/\s+/g, '') || 'yourname') + '.' + (identityState.identity?.publicKeyBase64.slice(0, 6) || '')}</span>
+			<span class="field-hint">The suffix makes your link unique — even if others pick the same name.</span>
 		</label>
 		<label class="field">
 			<span class="field-label">Bio</span>

@@ -572,11 +572,12 @@
 
 	/* Mobile: show sidebar OR chat */
 	@media (max-width: 768px) {
-		.dm-layout { height: calc(100vh - 56px); }
+		.dm-layout { height: calc(100vh - 56px - env(safe-area-inset-bottom, 0)); }
 		.sidebar { width: 100%; min-width: 100%; }
 		.chat-area { width: 100%; min-width: 100%; }
 		.back-btn { display: block; }
 		.chat-open .sidebar { display: none; }
 		.dm-layout:not(.chat-open) .chat-area { display: none; }
+		.chat-compose { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0)); }
 	}
 </style>

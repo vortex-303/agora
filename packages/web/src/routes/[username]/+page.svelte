@@ -20,12 +20,34 @@
 			if (pm && fm) {
 				clearInterval(check);
 
-				// Check local profile cache
+				// Parse vanity URL: "name.pubkeyPrefix" or just "name" or raw pubkey
+				const dotIdx = username.lastIndexOf('.');
+				let namepart = username;
+				let keyPrefix = '';
+				if (dotIdx > 0 && username.length - dotIdx <= 7) {
+					namepart = username.slice(0, dotIdx);
+					keyPrefix = username.slice(dotIdx + 1);
+				}
+
 				const all = pm.getAllProfiles();
-				const found = all.find(p => p.name?.toLowerCase() === username.toLowerCase());
-				if (found) {
-					ownerKey = found.publicKey;
-				} else if (username.length > 20) {
+				if (keyPrefix) {
+					// Match by pubkey prefix + name
+					const found = all.find(p => p.publicKey.startsWith(keyPrefix) &&
+						p.name?.toLowerCase() === namepart.toLowerCase());
+					if (found) ownerKey = found.publicKey;
+					// Fallback: match by prefix only
+					if (!ownerKey) {
+						const byPrefix = all.find(p => p.publicKey.startsWith(keyPrefix));
+						if (byPrefix) ownerKey = byPrefix.publicKey;
+					}
+				} else {
+					// Match by name only (legacy)
+					const found = all.find(p => p.name?.toLowerCase() === namepart.toLowerCase());
+					if (found) ownerKey = found.publicKey;
+				}
+
+				// Raw pubkey fallback
+				if (!ownerKey && username.length > 20) {
 					ownerKey = username;
 				}
 
