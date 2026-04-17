@@ -184,15 +184,15 @@
 		try { localStorage.setItem(READ_KEY, JSON.stringify(readTimestamps)); } catch {}
 	}
 
-	function isUnread(partner: string, lastMsg?: DecryptedDM): boolean {
+	function isUnread(partner: string, lastMsg: DecryptedDM | undefined, readState: Record<string, number>): boolean {
 		if (!lastMsg || lastMsg.outgoing) return false;
-		const readAt = readTimestamps[partner] || 0;
+		const readAt = readState[partner] || 0;
 		return lastMsg.timestamp > readAt;
 	}
 
 	// Merged list: sorted by most recent message, unread items first
 	let mergedList = $derived((() => {
-		readTimestamps = loadReadState(); // refresh
+		const currentRead = loadReadState();
 		const seen = new Set<string>();
 		const items: Array<{ key: string; name: string; status: 'ready' | 'connecting' | 'offline'; lastMsg?: DecryptedDM; isContact: boolean; unread: boolean }> = [];
 
@@ -206,7 +206,7 @@
 				status: contactStatus(c),
 				lastMsg: conv?.lastMessage,
 				isContact: true,
-				unread: isUnread(c, conv?.lastMessage),
+				unread: isUnread(c, conv?.lastMessage, currentRead),
 			});
 		}
 
@@ -219,7 +219,7 @@
 					status: contactStatus(conv.partner),
 					lastMsg: conv.lastMessage,
 					isContact: false,
-					unread: isUnread(conv.partner, conv.lastMessage),
+					unread: isUnread(conv.partner, conv.lastMessage, currentRead),
 				});
 			}
 		}
