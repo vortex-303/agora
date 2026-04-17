@@ -1,6 +1,5 @@
 import { createObject, deriveX25519FromMnemonic, toBase64, type SignedObject, type ProfileContent, type Identity } from '@agora/core';
 import type { FeedManager } from './feed.js';
-import type { PeerEntry } from './relay.js';
 
 export interface Profile {
   publicKey: string;
@@ -28,7 +27,6 @@ export class ProfileManager {
   private emitChange(): void { for (const h of this.changeHandlers) h(); }
 
   async init(): Promise<void> {
-    // Load cached profiles from localStorage (instant, before relay responds)
     this.loadCachedProfiles();
 
     this.feedManager.onObject((obj) => {
@@ -36,7 +34,6 @@ export class ProfileManager {
       this.trackSeen(obj.body.author, obj.body.timestamp);
     });
 
-    await this.feedManager.subscribe('profiles', [{ types: ['profile'] }]);
     await this.publishProfile();
   }
 
@@ -63,7 +60,6 @@ export class ProfileManager {
     const x25519 = deriveX25519FromMnemonic(this.identity.mnemonic);
     const state = this.feedManager.getAuthorState(this.identity.publicKeyBase64);
 
-    // Check for pending username from setup flow
     const pendingName = typeof localStorage !== 'undefined' ? localStorage.getItem('agora_pending_username') : null;
     if (pendingName) localStorage.removeItem('agora_pending_username');
 
@@ -119,34 +115,6 @@ export class ProfileManager {
       .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
   }
 
-  setOnline(peers: PeerEntry[]): void {
-    const onlineKeys = new Set(peers.map((p) => p.publicKey));
-    for (const [key, profile] of this.profiles) {
-      profile.online = onlineKeys.has(key);
-    }
-    // Update geo + x25519 from peer data
-    for (const peer of peers) {
-      const profile = this.profiles.get(peer.publicKey) || { publicKey: peer.publicKey };
-      if (peer.geo) {
-        profile.city = peer.geo.city;
-        profile.country = peer.geo.country;
-        profile.countryCode = peer.geo.countryCode;
-      }
-      if (peer.x25519PublicKey) {
-        profile.x25519PublicKey = peer.x25519PublicKey;
-      }
-      profile.online = true;
-      this.profiles.set(peer.publicKey, profile);
-    }
-    this.emitChange();
-  }
-
-  displayName(publicKey: string): string {
-    const p = this.profiles.get(publicKey);
-    if (p?.name) return p.name;
-    return publicKey.slice(0, 8) + '...';
-  }
-
   locationString(publicKey: string): string | undefined {
     const p = this.profiles.get(publicKey);
     if (!p) return undefined;
@@ -154,5 +122,11 @@ export class ProfileManager {
     if (p.country) return p.country;
     if (p.city) return p.city;
     return undefined;
+  }
+
+  displayName(publicKey: string): string {
+    const p = this.profiles.get(publicKey);
+    if (p?.name) return p.name;
+    return publicKey.slice(0, 8) + '...';
   }
 }

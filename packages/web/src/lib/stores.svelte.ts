@@ -1,11 +1,14 @@
 import type { Identity, SignedObject } from '@agora/core';
-import type { ConnectionStatus } from './relay.js';
 import type { FeedManager } from './feed.js';
 import type { ProfileManager } from './profiles.js';
 import type { DMManager } from './dm.js';
 import type { CommunityManager } from './communities.js';
 import type { VoteManager } from './votes.js';
 import type { ClientModeration } from './moderation-client.js';
+import type { AccountSync } from './account-sync.js';
+import type { SeedMode } from './seed-mode.js';
+
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 export const identityState = $state<{ identity: Identity | null }>({ identity: null });
 export const connectionState = $state<{ status: ConnectionStatus }>({ status: 'disconnected' });
@@ -18,6 +21,8 @@ export const appState = $state<{
   communityManager: CommunityManager | null;
   voteManager: VoteManager | null;
   moderation: ClientModeration | null;
+  accountSync: AccountSync | null;
+  seedMode: SeedMode | null;
 }>({
   feedManager: null,
   profileManager: null,
@@ -25,9 +30,10 @@ export const appState = $state<{
   communityManager: null,
   voteManager: null,
   moderation: null,
+  accountSync: null,
+  seedMode: null,
 });
 
-// Reactive tick counter — increment to force re-renders when non-reactive managers change
 export const reactiveState = $state<{ tick: number }>({ tick: 0 });
 export function triggerReactive(): void { reactiveState.tick++; }
 

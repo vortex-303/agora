@@ -16,7 +16,7 @@
 			const fm = appState.feedManager;
 			if (fm) {
 				clearInterval(check);
-				await fm.subscribe(`lobby:${ownerKey}`, [{ authors: [ownerKey] }]);
+				fm.joinUserSwarm(ownerKey);
 				loaded = true;
 			}
 		}, 50);

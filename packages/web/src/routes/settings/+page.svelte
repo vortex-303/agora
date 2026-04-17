@@ -3,14 +3,11 @@
 	import { createObject, type ProfileContent } from '@agora/core';
 	import { identityState, appState } from '$lib/stores.svelte.js';
 	import { clearIdentity } from '$lib/identity.js';
-	import { DEFAULT_RELAYS } from '$lib/relay-pool.js';
 
 	let username = $state('');
 	let bio = $state('');
 	let saved = $state(false);
 	let copied = $state(false);
-	let relays = $state<string[]>([]);
-	let newRelay = $state('');
 
 	// Concierge fields
 	let availability = $state('');
@@ -26,11 +23,6 @@
 	const CONCIERGE_KEY = 'riot_concierge_profile';
 
 	onMount(() => {
-		const stored = localStorage.getItem('agora_relays');
-		if (stored) { try { relays = JSON.parse(stored); } catch {} }
-		if (relays.length === 0) relays = [...DEFAULT_RELAYS];
-
-		// Load concierge data
 		try {
 			const c = localStorage.getItem(CONCIERGE_KEY);
 			if (c) {
@@ -59,28 +51,16 @@
 		localStorage.setItem(CONCIERGE_KEY, JSON.stringify({
 			availability, services, preferredContact, links, faqs,
 		}));
+		appState.accountSync?.updateSettings({
+			concierge: { availability, services, preferredContact, links, faqs },
+		});
 	}
-
-	let usernameError = $state('');
 
 	function saveProfile() {
 		const identity = identityState.identity;
 		const fm = appState.feedManager;
 		const pm = appState.profileManager;
 		if (!identity || !fm || !pm) return;
-		usernameError = '';
-
-		// Claim username on relay
-		if (username.trim()) {
-			fm.relay.send({ action: 'claim_username', username: username.trim() });
-			fm.relay.onUsername((msg: any) => {
-				if (msg.action === 'username_result') {
-					if (!msg.ok) {
-						usernameError = msg.error || 'Could not claim username';
-					}
-				}
-			});
-		}
 
 		const existing = pm.getProfile(identity.publicKeyBase64);
 		const state = fm.getAuthorState(identity.publicKeyBase64);
@@ -128,20 +108,6 @@
 		saveConcierge();
 	}
 
-	function addRelay() {
-		const url = newRelay.trim();
-		if (!url || relays.includes(url)) return;
-		if (!url.startsWith('ws://') && !url.startsWith('wss://')) return;
-		relays = [...relays, url];
-		localStorage.setItem('agora_relays', JSON.stringify(relays));
-		newRelay = '';
-	}
-
-	function removeRelay(url: string) {
-		relays = relays.filter((r) => r !== url);
-		localStorage.setItem('agora_relays', JSON.stringify(relays));
-	}
-
 	function copyAddress() {
 		if (!identityState.identity) return;
 		navigator.clipboard.writeText(identityState.identity.publicKeyBase64);
@@ -162,13 +128,10 @@
 	<div class="section card">
 		<h3 class="section-title">Profile</h3>
 		<label class="field">
-			<span class="field-label">Username</span>
+			<span class="field-label">Display Name</span>
 			<input class="input" bind:value={username} placeholder="Anonymous" />
 			<span class="field-hint">This becomes your Riot Link: riotp2p.com/{username.toLowerCase().replace(/\s+/g, '') || 'yourname'}</span>
-			{#if usernameError}
-				<span class="field-error">{usernameError}</span>
-			{/if}
-			<span class="field-hint">Usernames are reserved for 1 year. Stay active (post, message, pin) and it auto-renews. Inactive for 90+ days = name released.</span>
+			<span class="field-hint">Names are not unique — your public key is your true identity.</span>
 		</label>
 		<label class="field">
 			<span class="field-label">Bio</span>
@@ -253,25 +216,6 @@
 		</div>
 	</div>
 
-	<!-- Relays -->
-	<div class="section card">
-		<h3 class="section-title">Relays</h3>
-		<p class="section-hint">Connect to multiple relays for redundancy.</p>
-		<div class="item-list">
-			{#each relays as url (url)}
-				<div class="item-row">
-					<span class="relay-url mono">{url}</span>
-					<button class="item-remove" onclick={() => removeRelay(url)} disabled={relays.length <= 1}>✕</button>
-				</div>
-			{/each}
-		</div>
-		<div class="add-row">
-			<input class="input mono" style="flex:1" bind:value={newRelay} placeholder="wss://relay.example.com"
-				onkeydown={(e) => { if (e.key === 'Enter') addRelay(); }} />
-			<button class="btn btn-secondary btn-sm" onclick={addRelay}>Add</button>
-		</div>
-	</div>
-
 	<!-- Identity -->
 	<div class="section card">
 		<h3 class="section-title">Identity</h3>
@@ -306,7 +250,6 @@
 	.field { display: block; margin-bottom: 12px; }
 	.field-label { display: block; color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 5px; }
 	.field-hint { display: block; color: var(--text-tertiary); font-size: 0.7rem; margin-top: 4px; }
-	.field-error { display: block; color: #f87171; font-size: 0.75rem; margin-top: 4px; }
 
 	.item-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 	.item-row {
@@ -340,7 +283,6 @@
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		padding: 8px 10px; background: var(--bg-input); border-radius: 6px;
 	}
-	.relay-url { font-size: 0.7rem; color: var(--text-primary); }
 	.mnemonic-warn { color: var(--text-tertiary); font-size: 0.8rem; line-height: 1.5; }
 	.btn-danger {
 		background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2);

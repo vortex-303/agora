@@ -12,13 +12,16 @@ import {
 import type { FeedManager } from './feed.js';
 import { CacheManager } from './cache.js';
 
+export type DMStatus = 'queued' | 'sent' | 'delivered';
+
 export interface DecryptedDM {
   id: string;
-  from: string; // author public key
-  to: string; // recipient public key
+  from: string;
+  to: string;
   text: string;
   timestamp: number;
   outgoing: boolean;
+  status?: DMStatus;
 }
 
 export class DMManager {
@@ -29,9 +32,11 @@ export class DMManager {
   private x25519PublicBase64: string;
   private cache: CacheManager;
 
-  // Cached decrypted messages keyed by conversation partner
   private conversations = new Map<string, DecryptedDM[]>();
   private changeHandlers: (() => void)[] = [];
+  private activePartner: string | null = null;
+  // Track which outgoing DMs have been gossiped to at least one peer
+  private sentIds = new Set<string>();
 
   constructor(feedManager: FeedManager, identity: Identity) {
     this.feedManager = feedManager;
@@ -59,22 +64,38 @@ export class DMManager {
   async init(): Promise<void> {
     await this.cache.init();
 
-    // Subscribe to DMs addressed to us or from us
     this.feedManager.onObject(async (obj) => {
       if (obj.body.type === 'dm') {
         await this.handleDMObject(obj);
       }
     });
 
-    // Subscribe to DMs on the relay
-    await this.feedManager.subscribe('dms', [
-      { types: ['dm'], authors: [this.identity.publicKeyBase64] }, // our outgoing
-    ]);
-    // Also subscribe to objects addressed to us (all DMs, filter client-side)
-    await this.feedManager.subscribe('dms-in', [{ types: ['dm'] }]);
+    // When peers connect, check if queued messages can be marked sent
+    this.feedManager.swarmManager.onPeerChange(() => {
+      this.updateDeliveryStatus();
+    });
 
-    // Load cached DMs
+    // Load cached DMs — live DMs arrive via P2P gossip
     await this.loadCachedDMs();
+  }
+
+  openConversation(partner: string): void {
+    if (this.activePartner === partner) return;
+    if (this.activePartner) {
+      this.feedManager.leaveDMSwarm(this.activePartner);
+      this.feedManager.leaveUserSwarm(this.activePartner);
+    }
+    this.activePartner = partner;
+    this.feedManager.joinDMSwarm(partner);
+    this.feedManager.joinUserSwarm(partner);
+  }
+
+  closeConversation(): void {
+    if (this.activePartner) {
+      this.feedManager.leaveDMSwarm(this.activePartner);
+      this.feedManager.leaveUserSwarm(this.activePartner);
+      this.activePartner = null;
+    }
   }
 
   private async loadCachedDMs(): Promise<void> {
@@ -96,11 +117,9 @@ export class DMManager {
     let text: string | null = null;
 
     if (isOutgoing) {
-      // We can't decrypt our own outgoing DMs — use stored plaintext
       text = this.getOutgoingPlaintext(obj.id);
-      if (!text) text = '[message sent from this device]'; // fallback if localStorage cleared
+      if (!text) text = '[message sent from this device]';
     } else {
-      // Incoming — decrypt with our X25519 private key
       try {
         text = await decryptDM(
           fromBase64(content.ciphertext),
@@ -109,11 +128,17 @@ export class DMManager {
           this.x25519Private
         );
       } catch {
-        return; // Can't decrypt — not for us
+        return;
       }
     }
 
     const partner = isOutgoing ? content.recipient : obj.body.author;
+
+    // If we received our own message back from a peer, it was delivered
+    if (isOutgoing && !this.sentIds.has(obj.id)) {
+      this.sentIds.add(obj.id);
+    }
+
     const dm: DecryptedDM = {
       id: obj.id,
       from: obj.body.author,
@@ -121,15 +146,40 @@ export class DMManager {
       text,
       timestamp: obj.body.timestamp,
       outgoing: isOutgoing,
+      status: isOutgoing ? (this.sentIds.has(obj.id) ? 'sent' : 'queued') : undefined,
     };
 
     const conv = this.conversations.get(partner) || [];
-    if (!conv.some((m) => m.id === dm.id)) {
-      conv.push(dm);
-      conv.sort((a, b) => a.timestamp - b.timestamp);
-      this.conversations.set(partner, conv);
-      this.emitChange();
+    const existing = conv.findIndex(m => m.id === dm.id);
+    if (existing !== -1) {
+      // Update status if it changed
+      if (dm.status && conv[existing].status !== dm.status) {
+        conv[existing].status = dm.status;
+        this.emitChange();
+      }
+      return;
     }
+    conv.push(dm);
+    conv.sort((a, b) => a.timestamp - b.timestamp);
+    this.conversations.set(partner, conv);
+    this.emitChange();
+  }
+
+  private updateDeliveryStatus(): void {
+    const hasPeers = this.feedManager.swarmManager.getConnectedCount() > 0;
+    if (!hasPeers) return;
+
+    let changed = false;
+    for (const [, msgs] of this.conversations) {
+      for (const msg of msgs) {
+        if (msg.outgoing && msg.status === 'queued') {
+          msg.status = 'sent';
+          this.sentIds.add(msg.id);
+          changed = true;
+        }
+      }
+    }
+    if (changed) this.emitChange();
   }
 
   async sendDM(recipientPublicKey: string, recipientX25519PublicKey: string, text: string): Promise<void> {
@@ -153,7 +203,10 @@ export class DMManager {
       prev: state.lastId,
     });
 
-    // Store outgoing plaintext directly (we can't decrypt our own outgoing DMs)
+    const hasPeers = this.feedManager.swarmManager.getConnectedCount() > 0;
+    const status: DMStatus = hasPeers ? 'sent' : 'queued';
+    if (hasPeers) this.sentIds.add(obj.id);
+
     const dm: DecryptedDM = {
       id: obj.id,
       from: this.identity.publicKeyBase64,
@@ -161,6 +214,7 @@ export class DMManager {
       text,
       timestamp: obj.body.timestamp,
       outgoing: true,
+      status,
     };
     const conv = this.conversations.get(recipientPublicKey) || [];
     if (!conv.some((m) => m.id === dm.id)) {
@@ -170,9 +224,7 @@ export class DMManager {
       this.emitChange();
     }
 
-    // Persist plaintext for outgoing messages in localStorage
     this.storeOutgoingPlaintext(obj.id, text);
-
     await this.feedManager.publish(obj);
   }
 

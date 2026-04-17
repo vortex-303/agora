@@ -4,35 +4,20 @@
 	import { page } from '$app/stores';
 	import { loadIdentity } from '$lib/identity.js';
 	import { identityState, connectionState, appState, triggerReactive } from '$lib/stores.svelte.js';
-	import { RelayPool, DEFAULT_RELAYS } from '$lib/relay-pool.js';
 	import { FeedManager } from '$lib/feed.js';
 	import { ProfileManager } from '$lib/profiles.js';
 	import { DMManager } from '$lib/dm.js';
 	import { VoteManager } from '$lib/votes.js';
 	import { ClientModeration } from '$lib/moderation-client.js';
 	import { CommunityManager } from '$lib/communities.js';
+	import { AccountSync } from '$lib/account-sync.js';
+	import { SeedMode } from '$lib/seed-mode.js';
 	import GridCanvas from '$lib/GridCanvas.svelte';
 	import '$lib/theme.css';
 
 	let { children } = $props();
 	let showUserMenu = $state(false);
 	let copied = $state(false);
-
-	function getRelayUrls(): string[] {
-		if (typeof window === 'undefined') return DEFAULT_RELAYS;
-		const stored = localStorage.getItem('agora_relays');
-		if (stored) { try { return JSON.parse(stored); } catch {} }
-		// Auto-detect host relay when served from a relay node
-		const host = window.location.host;
-		const isRelayHost = DEFAULT_RELAYS.some(r => r.includes(host));
-		if (!isRelayHost && host !== 'localhost:5173') {
-			const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-			const hostRelay = `${proto}//${host}`;
-			return [hostRelay, ...DEFAULT_RELAYS.filter(r => r !== hostRelay)];
-		}
-		if (window.location.hostname === 'localhost') return ['ws://localhost:9800', ...DEFAULT_RELAYS];
-		return [...DEFAULT_RELAYS];
-	}
 
 	onMount(async () => {
 		if ('serviceWorker' in navigator) {
@@ -46,23 +31,19 @@
 		}
 		identityState.identity = identity;
 
-		const pool = new RelayPool(getRelayUrls(), identity);
-		const fm = new FeedManager(pool, identity);
+		const fm = new FeedManager(identity);
 		fm.onStatusChange((status) => { connectionState.status = status; });
 		await fm.init();
-		pool.connect();
 		appState.feedManager = fm;
 
 		const pm = new ProfileManager(fm, identity);
 		await pm.init();
 		appState.profileManager = pm;
-		pool.onPeers((peers) => { pm.setOnline(peers); });
 
 		const dm = new DMManager(fm, identity);
 		await dm.init();
 		appState.dmManager = dm;
 
-		// Keep these initialized but hidden from UI
 		const vm = new VoteManager(fm, identity);
 		await vm.init();
 		vm.onChange(triggerReactive);
@@ -76,6 +57,15 @@
 		const cm = new CommunityManager(fm, identity);
 		await cm.init();
 		appState.communityManager = cm;
+
+		const as = new AccountSync(fm, identity);
+		await as.init();
+		appState.accountSync = as;
+
+		const sm = new SeedMode(fm);
+		sm.init();
+		sm.onChange(triggerReactive);
+		appState.seedMode = sm;
 	});
 
 	function copyAddress() {
@@ -101,7 +91,7 @@
 
 	let statusClass = $derived(
 		connectionState.status === 'connected' ? 'badge-connected' :
-		connectionState.status === 'connecting' || connectionState.status === 'authenticating' ? 'badge-connecting' :
+		connectionState.status === 'connecting' ? 'badge-connecting' :
 		'badge-disconnected'
 	);
 
@@ -150,7 +140,7 @@
 				</a>
 				<span class="badge {statusClass}">
 					<span class="dot"></span>
-					<span class="status-text">{connectionState.status === 'connected' ? 'live' : connectionState.status}</span>
+					<span class="status-text">{connectionState.status === 'connected' ? 'p2p' : connectionState.status}</span>
 				</span>
 				<button class="user-btn" onclick={(e) => { e.stopPropagation(); showUserMenu = !showUserMenu; }}>
 					<span class="mono">{identityState.identity.publicKeyBase64.slice(0, 8)}</span>

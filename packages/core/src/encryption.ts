@@ -73,3 +73,48 @@ export async function decryptDM(
 
   return new TextDecoder().decode(decrypted);
 }
+
+/**
+ * Self-encrypt data using own X25519 keypair.
+ * ECDH(myPrivate, myPublic) produces a deterministic shared secret.
+ */
+export async function selfEncrypt(
+  plaintext: string,
+  x25519Private: Uint8Array,
+  x25519Public: Uint8Array
+): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array }> {
+  const sharedSecret = x25519.getSharedSecret(x25519Private, x25519Public);
+  const aesKeyBytes = hkdf(sha256, sharedSecret, x25519Public, new TextEncoder().encode('riot-self-v1'), 32);
+  const aesKey = await crypto.subtle.importKey('raw', toBuffer(aesKeyBytes), { name: 'AES-GCM' }, false, ['encrypt']);
+
+  const nonce = randomBytes(12);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: toBuffer(nonce) },
+    aesKey,
+    new TextEncoder().encode(plaintext)
+  );
+
+  return { ciphertext: new Uint8Array(encrypted), nonce };
+}
+
+/**
+ * Self-decrypt data using own X25519 keypair.
+ */
+export async function selfDecrypt(
+  ciphertext: Uint8Array,
+  nonce: Uint8Array,
+  x25519Private: Uint8Array,
+  x25519Public: Uint8Array
+): Promise<string> {
+  const sharedSecret = x25519.getSharedSecret(x25519Private, x25519Public);
+  const aesKeyBytes = hkdf(sha256, sharedSecret, x25519Public, new TextEncoder().encode('riot-self-v1'), 32);
+  const aesKey = await crypto.subtle.importKey('raw', toBuffer(aesKeyBytes), { name: 'AES-GCM' }, false, ['decrypt']);
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: toBuffer(nonce) },
+    aesKey,
+    toBuffer(ciphertext)
+  );
+
+  return new TextDecoder().decode(decrypted);
+}

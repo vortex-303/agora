@@ -13,7 +13,6 @@
 	let messageSent = $state(false);
 	let copied = $state(false);
 
-	// Resolve username to public key via relay + local profiles
 	onMount(() => {
 		const check = setInterval(async () => {
 			const pm = appState.profileManager;
@@ -21,32 +20,22 @@
 			if (pm && fm) {
 				clearInterval(check);
 
-				// 1. Check local profile cache first (instant)
+				// Check local profile cache
 				const all = pm.getAllProfiles();
 				const found = all.find(p => p.name?.toLowerCase() === username.toLowerCase());
 				if (found) {
 					ownerKey = found.publicKey;
 				} else if (username.length > 20) {
-					// Raw public key in URL
 					ownerKey = username;
 				}
 
-				// 2. Also ask relay for authoritative lookup
-				fm.relay.send({ action: 'lookup_username', username });
-				fm.relay.onUsername((msg: any) => {
-					if (msg.action === 'username_lookup' && msg.username === username.toLowerCase() && msg.found) {
-						ownerKey = msg.publicKey;
-					}
-				});
+				// Join the user's swarm to discover their content via P2P
+				if (ownerKey) {
+					fm.joinUserSwarm(ownerKey);
+					fm.onObject((obj) => addToFeed(obj));
+				}
 
-				// 3. Wait a moment for relay response, then load
-				setTimeout(async () => {
-					if (ownerKey) {
-						await fm.subscribe(`lobby:${ownerKey}`, [{ authors: [ownerKey] }]);
-						fm.onObject((obj) => addToFeed(obj));
-					}
-					loaded = true;
-				}, 500);
+				setTimeout(() => { loaded = true; }, 1000);
 			}
 		}, 50);
 
@@ -56,7 +45,6 @@
 
 	let profile = $derived(ownerKey ? appState.profileManager?.getProfile(ownerKey) : null);
 	let displayName = $derived(profile?.name || username);
-	let location = $derived(ownerKey ? appState.profileManager?.locationString(ownerKey) : null);
 	let isOnline = $derived(profile?.online || false);
 	let isMe = $derived(identityState.identity?.publicKeyBase64 === ownerKey);
 
@@ -115,9 +103,6 @@
 				<div class="avatar">{(profile?.name || ownerKey).slice(0, 2).toUpperCase()}</div>
 				<div class="profile-info">
 					<h1 class="name">{displayName}</h1>
-					{#if location}
-						<div class="loc">{location}</div>
-					{/if}
 					<div class="status-row">
 						{#if isOnline}
 							<span class="online-dot"></span>
@@ -172,7 +157,7 @@
 							onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) sendMessage(); }}
 						></textarea>
 						<div class="msg-bar">
-							<span class="encrypt-note">🔒 E2E encrypted</span>
+							<span class="encrypt-note">Messages sent via P2P</span>
 							{#if messageSent}
 								<span class="sent">Sent!</span>
 							{:else}
@@ -216,7 +201,6 @@
 	}
 	.profile-info { flex: 1; }
 	h1.name { font-size: 1.4rem; margin: 0; letter-spacing: -0.02em; }
-	.loc { color: var(--text-tertiary); font-size: 0.8rem; margin-top: 2px; }
 	.status-row { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
 	.online-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse-dot 2s infinite; }
 	.status-text { font-size: 0.75rem; color: var(--text-tertiary); }

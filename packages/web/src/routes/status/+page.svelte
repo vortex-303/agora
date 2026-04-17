@@ -96,7 +96,7 @@
 			.sort((a, b) => b.posts - a.posts);
 	});
 
-	let p2pPeers = $derived(appState.feedManager?.peerManager.getConnectedCount() || 0);
+	let p2pPeers = $derived(appState.feedManager?.swarmManager.getConnectedCount() || 0);
 	let networkStats = $derived(appState.feedManager?.getNetworkStats());
 </script>
 

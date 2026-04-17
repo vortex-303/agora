@@ -44,7 +44,7 @@ export class ClientModeration {
     this.feedManager.onObject((obj) => {
       if (obj.body.type === 'delete') this.handleDelete(obj);
     });
-    await this.feedManager.subscribe('deletes', [{ types: ['delete'] }]);
+    // Deletes arrive via P2P gossip
   }
 
   private handleDelete(obj: SignedObject): void {

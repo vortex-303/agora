@@ -12,7 +12,7 @@
 			const id = identityState.identity;
 			if (fm && id) {
 				clearInterval(check);
-				await fm.subscribe('my-inbox', [{ topics: [`inbox:${id.publicKeyBase64}`] }]);
+				// Inbox loads from cache — P2P gossip delivers live messages
 				loaded = true;
 			}
 		}, 50);

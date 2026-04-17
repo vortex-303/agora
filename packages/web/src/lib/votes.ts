@@ -27,7 +27,7 @@ export class VoteManager {
     this.feedManager.onObject((obj) => {
       if (obj.body.type === 'reaction') this.handleReaction(obj);
     });
-    await this.feedManager.subscribe('votes', [{ types: ['reaction'] }]);
+    // Votes arrive via P2P gossip
   }
 
   private handleReaction(obj: SignedObject): void {

@@ -46,8 +46,7 @@ export class CommunityManager {
       if (obj.body.type === 'modaction') this.handleModAction(obj);
     });
 
-    await this.feedManager.subscribe('communities', [{ types: ['community'] }]);
-    await this.feedManager.subscribe('modactions', [{ types: ['modaction'] }]);
+    // Communities/modactions arrive via P2P gossip
   }
 
   private handleCommunity(obj: SignedObject): void {

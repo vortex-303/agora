@@ -24,10 +24,7 @@
 				// Load from cache first (instant)
 				const cached = await fm.loadCachedFeed();
 				for (const obj of cached) addToFeed(obj);
-				// Then subscribe for live + relay data
-				await fm.subscribe('my-lobby', [{ authors: [myKey] }]);
-				await fm.subscribe('my-inbox', [{ topics: [`inbox:${myKey}`] }]);
-				// Wire live objects
+				// Wire live objects from P2P gossip
 				fm.onObject((obj) => addToFeed(obj));
 			}
 		}, 50);

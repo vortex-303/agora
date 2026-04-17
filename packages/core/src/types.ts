@@ -6,7 +6,8 @@ export type ObjectType =
   | 'delete'
   | 'dm'
   | 'community'
-  | 'modaction';
+  | 'modaction'
+  | 'encrypted_state';
 
 // Content types
 
@@ -58,6 +59,14 @@ export interface ModActionContent {
   reason?: string;
 }
 
+export type StateCategory = 'contacts' | 'settings' | 'blocked';
+
+export interface EncryptedStateContent {
+  category: StateCategory;
+  ciphertext: string; // base64
+  nonce: string; // base64
+}
+
 export type ObjectContent =
   | PostContent
   | FollowContent
@@ -66,7 +75,8 @@ export type ObjectContent =
   | DeleteContent
   | DMContent
   | CommunityContent
-  | ModActionContent;
+  | ModActionContent
+  | EncryptedStateContent;
 
 // Core object model
 

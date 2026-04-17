@@ -18,8 +18,7 @@
 			if (cm && fm) {
 				clearInterval(check);
 
-				// Make sure posts are subscribed
-				await fm.subscribe('community-posts', [{ types: ['post'] }]);
+				// Posts come via P2P gossip
 
 				const refresh = () => {
 					cm.updateCounts(feedState.objects);

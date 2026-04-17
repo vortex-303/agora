@@ -3,7 +3,6 @@
 	import { generateIdentity, restoreIdentity } from '$lib/identity.js';
 	import { saveIdentity } from '$lib/identity.js';
 	import { identityState } from '$lib/stores.svelte.js';
-	import { TOPICS } from '$lib/topics.js';
 	import type { Identity } from '@agora/core';
 	import GridCanvas from '$lib/GridCanvas.svelte';
 	import '$lib/theme.css';
@@ -40,7 +39,6 @@
 		if (!generatedIdentity) return;
 		await saveIdentity(generatedIdentity);
 		identityState.identity = generatedIdentity;
-		// Store username for profile publish on first connect
 		if (username.trim()) {
 			localStorage.setItem('agora_pending_username', username.trim());
 		}
@@ -68,21 +66,21 @@
 <div class="setup">
 	{#if mode === 'choose'}
 		<div class="hero">
-			<h1>agora<span class="dot">.</span></h1>
-			<p class="tagline">The public square owned by no one.</p>
-			<p class="desc">No email. No password. No surveillance. Your identity is a cryptographic keypair that only you control.</p>
+			<h1>riot<span class="dot">.</span></h1>
+			<p class="tagline">Peer-to-peer. No servers. Yours.</p>
+			<p class="desc">No email. No password. No servers. Your identity is a cryptographic keypair. Messages flow directly between peers.</p>
 			<div class="features">
 				<div class="feature">
-					<span class="fi">🔑</span>
+					<span class="fi">&#x1f511;</span>
 					<span>Cryptographic identity</span>
 				</div>
 				<div class="feature">
-					<span class="fi">🔒</span>
-					<span>E2E encrypted DMs</span>
+					<span class="fi">&#x1f512;</span>
+					<span>E2E encrypted messages</span>
 				</div>
 				<div class="feature">
-					<span class="fi">🌐</span>
-					<span>Peer-to-peer gossip</span>
+					<span class="fi">&#x1f310;</span>
+					<span>No servers — fully P2P</span>
 				</div>
 			</div>
 		</div>
@@ -104,19 +102,11 @@
 		</label>
 		<button class="btn-big" onclick={confirmBackup} disabled={!confirmed}>Continue</button>
 	{:else if mode === 'name'}
-		<h2>Pick a username</h2>
-		<p class="desc">Optional. You can change this anytime in Settings. Others will see this instead of your public key.</p>
+		<h2>Pick a display name</h2>
+		<p class="desc">Optional. You can change this anytime in Settings. Names are not unique — your public key is your true identity.</p>
 		<input class="input name-input" bind:value={username} placeholder="Anonymous" autofocus
 			onkeydown={(e) => { if (e.key === 'Enter') finish(); }} />
-		<div class="topics-preview">
-			<p class="topics-label">You'll find conversations in:</p>
-			<div class="topic-pills">
-				{#each TOPICS as topic}
-					<span class="topic-pill">#{topic.label}</span>
-				{/each}
-			</div>
-		</div>
-		<button class="btn-big" onclick={finish}>Enter the Riot</button>
+		<button class="btn-big" onclick={finish}>Enter Riot</button>
 	{:else}
 		<h2>Restore Identity</h2>
 		<p class="desc">Enter your 12-word recovery phrase.</p>
@@ -167,14 +157,6 @@
 	}
 	.confirm-row input { accent-color: var(--accent); }
 	.name-input { font-size: 1.2rem; padding: 14px 16px; margin-bottom: 24px; text-align: center; }
-	.topics-preview { margin-bottom: 28px; }
-	.topics-label { color: var(--text-tertiary); font-size: 0.8rem; margin-bottom: 10px; }
-	.topic-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-	.topic-pill {
-		padding: 4px 12px; border-radius: 20px; font-size: 0.8rem;
-		background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.15);
-		color: var(--accent);
-	}
 	.error { color: #f87171; font-size: 0.85rem; margin-bottom: 12px; }
 	textarea { resize: vertical; min-height: 80px; margin-bottom: 12px; }
 </style>

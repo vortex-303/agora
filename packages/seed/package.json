@@ -1,0 +1,15 @@
+{
+  "name": "@riotp2p/seed",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "riot-seed": "./src/index.mjs"
+  },
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.7.0",
+    "node-datachannel": "^0.32.0"
+  }
+}

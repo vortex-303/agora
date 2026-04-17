@@ -20,7 +20,6 @@
 						addToFeed(obj);
 					}
 				});
-				await fm.subscribe(`community:${name}`, [{ types: ['post'], topics: [name] }]);
 				loaded = true;
 			}
 		}, 50);

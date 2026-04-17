@@ -1,21 +1,19 @@
 import type { SignedObject } from '@agora/core';
 import { CacheManager } from './cache.js';
 import { Outbox } from './outbox.js';
-import type { ConnectionStatus } from './relay.js';
-import type { RelayLike } from './relay-interface.js';
-import { PeerManager } from './webrtc.js';
 import { GossipManager } from './gossip.js';
+import { SwarmManager, riotTopic, dmTopic } from './swarm.js';
 import type { Identity } from '@agora/core';
 
+type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 type ObjectHandler = (obj: SignedObject) => void;
 type StatusHandler = (status: ConnectionStatus) => void;
 
 export class FeedManager {
   private cache: CacheManager;
   private outbox: Outbox;
-  readonly relay: RelayLike;
   private identity: Identity;
-  readonly peerManager: PeerManager;
+  readonly swarmManager: SwarmManager;
   private gossip: GossipManager;
 
   private objectHandlers: ObjectHandler[] = [];
@@ -24,13 +22,12 @@ export class FeedManager {
   private seen = new Set<string>();
   private authorSeq = new Map<string, { seq: number; lastId?: string }>();
 
-  constructor(relay: RelayLike, identity: Identity) {
+  constructor(identity: Identity) {
     this.cache = new CacheManager();
     this.outbox = new Outbox();
-    this.relay = relay;
     this.identity = identity;
-    this.peerManager = new PeerManager(relay, identity.publicKeyBase64);
-    this.gossip = new GossipManager(this.peerManager);
+    this.swarmManager = new SwarmManager(identity.publicKeyBase64);
+    this.gossip = new GossipManager(this.swarmManager);
   }
 
   onObject(handler: ObjectHandler): void { this.objectHandlers.push(handler); }
@@ -47,33 +44,48 @@ export class FeedManager {
     await this.cache.init();
     await this.outbox.init();
 
-    // Give gossip access to cache for pull-sync
     this.gossip.setCache(this.cache);
 
-    // Relay events → ingest + cache
-    this.relay.onEvent(async (_subId, obj) => {
-      this.gossip.markSeen(obj.id); // don't re-gossip relay objects
-      await this.ingestObject(obj, _subId);
+    this.gossip.onObject(async (obj) => {
+      await this.ingestObject(obj);
     });
 
-    this.relay.onStatusChange(async (status) => {
-      this.emitStatus(status);
-      if (status === 'connected') {
-        await this.outbox.flush((obj) => this.relay.publish(obj));
-        // Request peer list for WebRTC
-        this.relay.requestPeers();
+    this.swarmManager.onStatus((connected) => {
+      this.emitStatus(connected ? 'connected' : 'connecting');
+      if (connected) {
+        this.outbox.flush((obj) => this.gossip.gossip(obj));
       }
     });
 
-    // Peer discovery
-    this.relay.onPeers((peers) => {
-      this.peerManager.connectToPeers(peers.map((p) => p.publicKey));
+    this.swarmManager.onPeerChange(() => {
+      const count = this.swarmManager.getConnectedCount();
+      this.emitStatus(count > 0 ? 'connected' : 'connecting');
+      if (count > 0) {
+        this.outbox.flush((obj) => this.gossip.gossip(obj));
+      }
     });
 
-    // Gossip events → ingest + cache
-    this.gossip.onObject(async (obj) => {
-      await this.ingestObject(obj, 'p2p');
-    });
+    // Join own user swarm (always present for lobby)
+    this.swarmManager.joinSwarm(riotTopic('user', this.identity.publicKeyBase64));
+
+    this.emitStatus('connecting');
+  }
+
+  joinUserSwarm(pubkey: string): void {
+    this.swarmManager.joinSwarm(riotTopic('user', pubkey));
+  }
+
+  leaveUserSwarm(pubkey: string): void {
+    if (pubkey === this.identity.publicKeyBase64) return;
+    this.swarmManager.leaveSwarm(riotTopic('user', pubkey));
+  }
+
+  joinDMSwarm(otherPubkey: string): void {
+    this.swarmManager.joinSwarm(dmTopic(this.identity.publicKeyBase64, otherPubkey));
+  }
+
+  leaveDMSwarm(otherPubkey: string): void {
+    this.swarmManager.leaveSwarm(dmTopic(this.identity.publicKeyBase64, otherPubkey));
   }
 
   async loadCachedFeed(): Promise<SignedObject[]> {
@@ -95,25 +107,12 @@ export class FeedManager {
     return posts;
   }
 
-  async subscribe(id: string, filters: Array<{ authors?: string[]; topics?: string[]; types?: string[]; since?: number; limit?: number }>): Promise<void> {
-    const cursor = await this.cache.getCursor(id);
-    if (cursor) {
-      filters = filters.map((f) => ({
-        ...f,
-        since: f.since ? Math.max(f.since, cursor) : cursor,
-      }));
-    }
-    this.relay.subscribe(id, filters);
-  }
-
-  private async ingestObject(obj: SignedObject, subscriptionId: string): Promise<void> {
+  private async ingestObject(obj: SignedObject): Promise<void> {
     if (this.seen.has(obj.id)) return;
     this.seen.add(obj.id);
     this.trackAuthorSeq(obj);
 
     await this.cache.put(obj);
-    await this.cache.updateCursor(subscriptionId, obj);
-
     this.emitObject(obj);
   }
 
@@ -137,16 +136,12 @@ export class FeedManager {
   }
 
   async publish(obj: SignedObject): Promise<void> {
-    await this.ingestObject(obj, 'local');
-
-    // Gossip to P2P peers
+    await this.ingestObject(obj);
     this.gossip.gossip(obj);
 
-    if (this.relay.connected) {
-      this.relay.publish(obj);
-    } else {
+    if (this.swarmManager.getConnectedCount() === 0) {
       await this.outbox.add(obj);
-      console.log('[Feed] Queued object in outbox (offline)');
+      console.log('[Feed] Queued object in outbox (no peers)');
     }
   }
 }

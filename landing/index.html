@@ -218,17 +218,17 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
       <div class="feat reveal">
         <div class="feat-icon">💬</div>
         <h3>Encrypted DMs</h3>
-        <p>When someone messages your lobby, reply via DMs. Per-message forward secrecy. Share files in conversation. The relay sees ciphertext — it can't read a word.</p>
+        <p>When someone messages your lobby, reply via DMs. Per-message forward secrecy. Messages flow directly between peers. No server ever sees your conversation.</p>
       </div>
       <div class="feat reveal">
-        <div class="feat-icon">🧩</div>
-        <h3>Chrome Extension</h3>
-        <p>Install the extension and your lobby stays live even when the tab is closed. Your browser becomes a permanent node on the network. <a href="/riot-extension.zip" download>Download</a></p>
+        <div class="feat-icon">🌱</div>
+        <h3>Seed Mode</h3>
+        <p>Toggle one switch and your browser starts hosting content for the entire network. Other people's lobbies stay online because you're caching them. More seeders = more resilient network. Earn a contributor badge on your profile.</p>
       </div>
       <div class="feat reveal">
         <div class="feat-icon">🌐</div>
         <h3>Network Map</h3>
-        <p>See who's online, where they are, ping latency. Every node on the network is visible. Message anyone directly. The network is transparent — the messages aren't.</p>
+        <p>See who's in the swarm, how many peers, objects cached and served. Track your contribution: users hosted, objects served, uptime. The network is transparent — the messages aren't.</p>
       </div>
     </div>
   </div>
@@ -253,9 +253,9 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
         <h3>Riot Link</h3>
         <div class="row"><span class="ic" style="color:var(--accent)">◆</span> One link — nothing exposed except what you choose</div>
         <div class="row"><span class="ic" style="color:var(--accent)">◆</span> No account needed to message you</div>
-        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> E2E encrypted — the server can't read messages</div>
-        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> Data lives in YOUR browser, not a company's server</div>
-        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> Open source — 9,000 lines, MIT licensed, verify yourself</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> E2E encrypted — no server exists to read messages</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> Data lives in YOUR browser, peers replicate it P2P</div>
+        <div class="row"><span class="ic" style="color:var(--accent)">◆</span> Open source — MIT licensed, verify yourself</div>
       </div>
     </div>
   </div>
@@ -281,7 +281,7 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
       <div class="step reveal">
         <div class="feat-icon">🛡️</div>
         <h3>Swarm Resilience</h3>
-        <p>Kill a relay. Kill ten relays. The network keeps working because every browser has a copy and can talk directly to other browsers. There's nothing to shut down.</p>
+        <p>There are no relays to kill. Every browser is a full node that talks directly to other browsers via WebRTC, discovered through public BitTorrent trackers. There's nothing to shut down.</p>
       </div>
     </div>
     <div class="reveal" style="margin-top:40px; text-align:center; max-width:580px; margin-left:auto; margin-right:auto;">
@@ -311,7 +311,7 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
       <div class="ecard reveal">
         <div class="ecard-icon">🌐</div>
         <h3>P2P Mesh</h3>
-        <p>Browsers connect directly via WebRTC. The relay is a convenience. Kill it — the network keeps working.</p>
+        <p>Browsers connect directly via WebRTC through BitTorrent tracker swarms. No servers. No relays. Just peers.</p>
       </div>
     </div>
   </div>
@@ -335,7 +335,6 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
     <div class="foot-links">
       <a href="https://app.riotp2p.com">App</a>
       <a href="https://github.com/vortex-303/agora">GitHub</a>
-      <a href="/riot-extension.zip" download>Chrome Extension</a>
       <span style="color:var(--text-tertiary)">riot. © 2026</span>
     </div>
   </div>
