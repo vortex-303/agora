@@ -1,321 +1,334 @@
-# Agora — Product & Development Spec
+# Riot P2P — Technical Specification
 
-> Decentralized P2P social platform. No accounts, no servers owning your data. Cryptographic identity, end-to-end encrypted DMs, peer-to-peer gossip.
+> Peer-to-peer encrypted messaging and identity platform. No servers. No accounts. No surveillance.
 
-**Live:** https://agora-web.fly.dev/
-**Relay:** wss://agora-relay.fly.dev
-
----
-
-## Architecture
-
-```
-agora/
-├── packages/
-│   ├── core/          @agora/core — crypto, types, object model (TypeScript)
-│   ├── web/           @agora/web — SvelteKit 5 SPA (Svelte 5 runes)
-│   └── relay/         @agora/relay — Node.js WebSocket relay server
-├── fly.toml           Relay deployment (Fly.io)
-├── Dockerfile         Relay container
-├── turbo.json         Monorepo orchestration
-└── pnpm-workspace.yaml
-```
-
-**Stack:** TypeScript · pnpm workspaces · Turborepo · SvelteKit 5 (adapter-static) · @noble/curves (Ed25519, X25519) · ws · geoip-lite · Fly.io
-
-**Total:** ~4,700 lines of source code · 34 tests passing
+**Live:** https://app.riotp2p.com
+**Landing:** https://riotp2p.com
+**Source:** https://github.com/vortex-303/agora
 
 ---
 
-## Data Model
+## Architecture Overview
 
-Every piece of data is a **SignedObject**: content-addressed (SHA-256), signed (Ed25519), typed, sequenced.
+Riot is a fully decentralized messaging platform where browsers connect directly to each other via WebRTC. Peer discovery happens through public BitTorrent tracker infrastructure. There are no Riot-operated servers.
 
-```typescript
-interface SignedObject {
-  body: {
-    author: string;         // base64 Ed25519 public key
-    content: ObjectContent; // type-specific payload
-    type: ObjectType;       // "post" | "profile" | "dm" | ...
-    seq: number;            // sequence in author's feed
-    timestamp: number;      // unix ms
-    prev?: string;          // hash chain to previous object
-  };
-  id: string;               // "sha256:<hex>" of canonical JSON body
-  sig: string;              // base64 Ed25519 signature
-}
+```
+┌──────────┐         ┌──────────────────┐         ┌──────────┐
+│ Browser  │◄═══════►│  BitTorrent      │◄═══════►│ Browser  │
+│ (user A) │  WebRTC │  Tracker         │  WebRTC │ (user B) │
+│          │  direct │  (discovery only)│  direct │          │
+└──────────┘         └──────────────────┘         └──────────┘
+     ▲                                                  ▲
+     │              ┌──────────────────┐                │
+     └══════════════│ Seeder CLI       │════════════════┘
+        WebRTC      │ (optional node)  │        WebRTC
+                    └──────────────────┘
 ```
 
-### Object Types (8)
+### Key Properties
 
-| Type | Content | Status |
-|------|---------|--------|
-| `post` | `{ text, topic?, reply? }` | Implemented |
-| `profile` | `{ name?, bio?, x25519PublicKey? }` | Implemented |
-| `dm` | `{ recipient, ciphertext, ephemeralPublicKey, nonce }` | Implemented |
-| `follow` | `{ target, unfollow? }` | Type defined |
-| `reaction` | `{ target, emoji }` | Type defined |
-| `delete` | `{ target }` | Type defined |
-| `community` | `{ name, description?, moderators? }` | Type defined |
-| `modaction` | `{ community, target, action, reason? }` | Type defined |
+- **No servers.** The tracker is public BitTorrent infrastructure (openwebtorrent.com), not operated by Riot.
+- **Self-authenticating data.** Every object is signed with Ed25519 and content-addressed with SHA-256.
+- **E2E encrypted messaging.** Per-message forward secrecy via X25519 ECDH + AES-256-GCM.
+- **Portable identity.** 12-word BIP-39 mnemonic generates all keys deterministically.
+- **Offline-capable.** Data persists in IndexedDB. Sync happens when peers reconnect.
 
 ---
 
 ## Identity & Cryptography
 
-- **Identity = Ed25519 keypair** derived from a 12-word BIP-39 mnemonic via HKDF
-  - Salt: `agora-ed25519-v1`, Info: `signing-key-seed`
-  - Same mnemonic → same keypair on any device
-- **Encryption keypair = X25519** derived from same mnemonic (separate HKDF salt: `agora-x25519-v1`)
-  - Auto-published in profile object
-- **DM encryption:** Per-message ephemeral X25519 → ECDH → HKDF → AES-256-GCM (forward secrecy)
-- **Object integrity:** `id = SHA-256(canonicalJSON(body))`, `sig = Ed25519(canonicalJSON(body))`
+### Key Derivation
+
+```
+Mnemonic (12 words, 128-bit entropy + checksum)
+    │
+    ├── HKDF(SHA-256, mnemonic, "agora-ed25519-v1") → Ed25519 seed
+    │   └── Ed25519 keypair (signing + identity)
+    │       └── Public key = user's identity (base64-encoded)
+    │
+    └── HKDF(SHA-256, mnemonic, "agora-x25519-v1") → X25519 seed
+        └── X25519 keypair (encryption)
+            ├── Used for DM encryption (ECDH with recipient)
+            └── Used for self-encryption (account sync)
+```
+
+### Libraries
+
+- **@noble/curves** — Ed25519 signing, X25519 ECDH
+- **@noble/hashes** — SHA-256, SHA-1 (infohash), HKDF
+- **Web Crypto API** — AES-256-GCM encryption/decryption
+
+---
+
+## Network Layer
+
+### Peer Discovery
+
+All peers announce to a single BitTorrent WebSocket tracker using infohash `SHA-1("riot:network:v1")`. The tracker returns WebRTC offers from other peers.
+
+```
+1. Browser → Tracker: announce(infohash, peer_id, [WebRTC offer])
+2. Tracker → Browser: here's another peer's offer
+3. Browser → Tracker: answer(offer_id, [WebRTC answer])
+4. Tracker forwards answer to the offering peer
+5. WebRTC DataChannel established (direct, no tracker involvement)
+```
+
+### Connection Management
+
+**Tiebreaker:** When both peers simultaneously offer to each other, the peer with the lexicographically lower tracker ID is the designated offerer. The higher ID peer accepts offers only. This ensures exactly ONE connection per peer pair.
+
+**Announce interval:** Every 20 seconds.
+
+**ICE configuration:** STUN only (stun.l.google.com). No TURN servers.
+
+### Pubkey Handshake
+
+On DataChannel open, both peers exchange: `{ _riot_hello: "ed25519_public_key_base64" }`
+
+This maps tracker peer IDs to cryptographic identities, enabling:
+- Direct message delivery by pubkey
+- Profile lookup for connected peers
+- Contact online/offline status
+
+---
+
+## Object Model
+
+### SignedObject
+
+Every piece of data in Riot is a SignedObject:
+
+```typescript
+interface SignedObject {
+  id: string;        // "sha256:<hex>" — content-addressed
+  sig: string;       // base64 Ed25519 signature of body
+  body: {
+    author: string;  // base64 Ed25519 public key
+    type: ObjectType;
+    content: ObjectContent;
+    seq: number;     // monotonic per author
+    timestamp: number;
+    prev?: string;   // hash chain
+  };
+}
+```
+
+### Object Types
+
+| Type | Content | Purpose |
+|------|---------|---------|
+| `post` | text, topic?, image?, reply? | Lobby pins, shared files |
+| `profile` | name?, bio?, x25519PublicKey? | User identity |
+| `dm` | recipient, ciphertext, ephemeralPublicKey, nonce | Encrypted DM |
+| `read_receipt` | messageId | DM read confirmation |
+| `reaction` | target, emoji | Upvote/downvote |
+| `delete` | target | Author-signed deletion |
+| `encrypted_state` | category, ciphertext, nonce | Self-encrypted account data |
+| `community` | name, description?, moderators? | Community definition |
+| `modaction` | community, target, action, reason? | Moderation action |
+
+---
+
+## Gossip Protocol
+
+Runs over WebRTC DataChannels. Four message types:
+
+```
+gossip      → push new object to peer (real-time)
+watermark   → exchange highest seq per author (on connect)
+request     → ask for objects from author after seq N
+response    → batch of requested objects (max 50)
+```
+
+### Sync Flow
+
+```
+Peer A connects to Peer B:
+  A → B: watermark { "authorX": 5, "authorY": 3 }
+  B → A: watermark { "authorX": 5, "authorZ": 7 }
+  A → B: request { author: "authorZ", afterSeq: 0 }
+  B → A: response { objects: [...all of Z's objects...] }
+```
+
+Objects are validated on receipt: signature verified, hash checked. Invalid objects are silently dropped.
+
+---
+
+## DM Encryption
+
+### Sending
+
+```
+1. Generate ephemeral X25519 keypair
+2. ECDH(ephemeral_private, recipient_x25519_public) → shared_secret
+3. HKDF(shared_secret, ephemeral_public, "agora-dm-v1") → AES key
+4. AES-256-GCM(key, random_nonce, plaintext) → ciphertext
+5. Publish: { recipient, ciphertext, ephemeralPublicKey, nonce }
+```
+
+### Receiving
+
+```
+1. ECDH(my_x25519_private, ephemeral_public_key) → same shared_secret
+2. HKDF → same AES key
+3. AES-256-GCM decrypt → plaintext
+```
+
+### Delivery
+
+- **Direct:** if recipient is connected, send on their DataChannel
+- **Gossip fallback:** if offline, store in cache; delivered via watermark sync when they connect
+- **Status indicators:** ⏳ queued → ✓ sent → ✓✓ read
+
+---
+
+## Account Sync
+
+Contacts, settings, and blocked users are stored as self-encrypted SignedObjects:
+
+```
+selfEncrypt(data):
+  ECDH(my_x25519_private, my_x25519_public) → deterministic shared secret
+  HKDF("riot-self-v1") → AES key
+  AES-256-GCM(key, nonce, JSON.stringify(data)) → ciphertext
+```
+
+Published as `encrypted_state` objects. Only the owner's mnemonic can decrypt. Synced across devices via gossip.
+
+| Category | Data |
+|----------|------|
+| `contacts` | List of pubkeys |
+| `settings` | Concierge profile (availability, services, links, FAQ) |
+| `blocked` | Blocked pubkey list |
+
+---
+
+## Seed Mode
+
+Browser-based community hosting. Toggle in Network tab.
+
+**When enabled:**
+- Caches all objects received from any peer
+- Serves cached objects to any peer that requests them
+- Tracks contribution: objects served, peers helped, uptime
+
+**Badges:** New Seeder → Seeder → Active Seeder → Veteran Seeder
+
+---
+
+## Seeder CLI
+
+Always-on Node.js process for 24/7 network participation.
+
+```bash
+# Personal: keep your lobby alive
+npx @riotp2p/seed --topics riot:user:YOUR_KEY
+
+# Network node: host content for others
+npx @riotp2p/seed --seed-all --budget 512
+```
+
+### Features
+
+- WebRTC via node-datachannel
+- JSONL storage at `~/.riot-seed/objects.jsonl`
+- Web dashboard at `localhost:9876`
+- DHT publishing (BEP 44)
+- Neighborhood storage with XOR-based assignment
+- Budget-aware eviction
+
+---
+
+## Persistence Layers
+
+```
+Layer 1: IndexedDB (browser)
+  └── Instant, per-device, survives tab close
+
+Layer 2: Reciprocal peer cache
+  └── Every connected peer caches received objects
+
+Layer 3: Seeder CLI (optional)
+  └── Disk-backed, always-on, serves objects 24/7
+
+Layer 4: BitTorrent DHT (seeder publishes)
+  └── 20M+ nodes, profiles survive 2-8h without any Riot node
+```
+
+---
+
+## Tech Stack
+
+### Monorepo
+
+```
+agora/
+├── packages/
+│   ├── core/         Crypto, objects, types (~1,100 lines)
+│   ├── web/          SvelteKit 5 SPA (~5,000 lines)
+│   └── seed/         Node.js seeder CLI (~600 lines)
+└── landing/          Landing page (single HTML)
+```
 
 ### Dependencies
-- `@noble/curves` — Ed25519 signing, X25519 ECDH (no Node.js crypto dependency)
-- `@noble/hashes` — SHA-256, HKDF
-- Web Crypto API — AES-256-GCM encryption
+
+| Package | Runtime Deps |
+|---------|-------------|
+| @agora/core | @noble/curves, @noble/hashes |
+| @agora/web | @agora/core, @noble/hashes |
+| @riotp2p/seed | @noble/curves, @noble/hashes, node-datachannel, bittorrent-dht |
+
+### Deployment
+
+| Component | Platform | URL |
+|-----------|----------|-----|
+| Web app | Vercel (static SPA) | app.riotp2p.com |
+| Landing | Vercel | riotp2p.com |
+| Seeder | Any Node.js 18+ machine | localhost:9876 |
 
 ---
 
-## Wire Protocol
+## Security Model
 
-WebSocket JSON messages between client ↔ relay.
+### Protects against
+- Surveillance (E2E encryption, no server sees plaintext)
+- Impersonation (Ed25519 signatures verify authorship)
+- Tampering (SHA-256 content addressing)
+- Metadata leakage (no central server)
+- Account theft (no server holds credentials)
 
-### Authentication (challenge-response)
-```
-Client → { action: "hello", publicKey }
-Server → { action: "challenge", nonce }          // 32 random bytes, base64
-Client → { action: "auth", signature, nonce }    // Ed25519 sign(nonce)
-Server → { action: "auth_ok" }
-```
-
-### Data Flow
-```
-Client → { action: "publish", object: SignedObject }
-Client → { action: "subscribe", id, filters: [{ authors?, topics?, types?, since? }] }
-Server → { action: "event", subscriptionId, object }    // stored + live matches
-Server → { action: "eose", subscriptionId }              // end of stored events
-```
-
-### P2P Signaling
-```
-Client → { action: "signal", target, signalType: "offer"|"answer"|"ice", data }
-Server → relays to target client
-Client → { action: "peers" }
-Server → { action: "peers", peers: [{ publicKey, geo: { city, country } }] }
-```
+### Does NOT protect against
+- Traffic analysis (observer can see IP connections)
+- Key loss (lose mnemonic = lose identity)
+- Sybil attacks (free keypair creation)
+- Eclipse attacks (all-malicious peers can withhold data)
 
 ---
 
-## Relay Server (`@agora/relay`)
-
-**Port:** 9800 · **Deploy:** Fly.io (sjc) · **Storage:** persistent volume at `/data`
-
-### Components
-
-| File | Lines | Purpose |
-|------|-------|---------|
-| `server.ts` | 280 | WebSocket server, auth, message routing, WebRTC signaling, GeoIP |
-| `store.ts` | 160 | In-memory index + daily JSONL persistence |
-| `subscription.ts` | 49 | Filter matching, broadcast to subscribers |
-| `auth.ts` | 38 | Challenge-response Ed25519 authentication |
-| `config.ts` | 7 | Environment configuration |
-| `index.ts` | 22 | HTTP server + `/health` endpoint |
-
-### Object Store
-- **In-memory:** `Map<id, SignedObject>` + `Map<author, SignedObject[]>` (sorted by seq)
-- **Persistence:** Daily JSONL files (`data/objects/YYYY-MM-DD.jsonl`)
-- **Eviction:** 7-day TTL · 10,000 max objects · 1,000 per author
-- **Load on startup:** reads all JSONL files back into memory
-
-### GeoIP
-- Resolves client IP on connect via `geoip-lite`
-- City + country included in `peers` response
-- Uses `X-Forwarded-For` header (Fly.io proxy)
-
-### Health
-```
-GET /health → { status: "ok", clients: N, authenticated: N, objects: N }
-```
-
----
-
-## Web Client (`@agora/web`)
-
-**Framework:** SvelteKit 5 (adapter-static, SPA) · **Deploy:** Fly.io (nginx)
-
-### Manager Architecture
-
-The app initializes a chain of managers in `+layout.svelte`:
-
-```
-RelayClient → FeedManager → ProfileManager
-                          → DMManager
-                          → PeerManager → GossipManager
-```
-
-| Manager | Purpose |
-|---------|---------|
-| `RelayClient` | WebSocket connection, auth, reconnect, event dispatch |
-| `FeedManager` | Orchestrates relay + P2P + cache + outbox |
-| `CacheManager` | IndexedDB persistence with sync cursors |
-| `Outbox` | Queues objects created offline, flushes on reconnect |
-| `ProfileManager` | Tracks profiles, online status, GeoIP, display names |
-| `DMManager` | E2E encrypted conversations, outgoing plaintext storage |
-| `PeerManager` | WebRTC data channels, offer/answer via relay signaling |
-| `GossipManager` | Forwards objects to P2P peers, validates incoming gossip |
-
-### IndexedDB Databases (3)
-
-| Database | Purpose |
-|----------|---------|
-| `agora_identity` | Ed25519 keypair + mnemonic (persists across sessions) |
-| `agora_cache` | Object store with indexes on `[author, seq]`, `timestamp`, `type` |
-| `agora_outbox` | Pending objects for offline publish |
-
-### Routes
-
-| Route | Page |
-|-------|------|
-| `/` | Feed — topic tabs, compose, post list with reply counts |
-| `/post/[id]` | Post detail — parent post + single-level replies |
-| `/topic/[name]` | Topic feed (legacy, still works) |
-| `/network` | Online peers with GeoIP location, add by address |
-| `/dm` | WhatsApp-style split layout — sidebar conversations + chat |
-| `/dm/[pubkey]` | Redirects to `/dm` with conversation auto-selected |
-| `/settings` | Profile editing (username), identity management, sign out |
-| `/setup` | Onboarding — create new identity or restore from phrase |
-
-### Topics (9 pre-defined)
-
-| ID | Label | Description |
-|----|-------|-------------|
-| `general` | General | Anything goes |
-| `tech` | Tech | Software, hardware, hacking |
-| `crypto` | Crypto | Cryptography, protocols, privacy |
-| `p2p` | P2P | Decentralization, mesh networks |
-| `ww3` | WW3 | Geopolitics, conflict, world events |
-| `memes` | Memes | Internet culture, shitposts |
-| `art` | Art | Creative work, music, visuals |
-| `science` | Science | Research, papers, discoveries |
-| `random` | Random | Off-topic chaos |
-
-### Design System
-
-- **Theme:** Dark background (`#07070a`), orange accent (`#f97316`)
-- **Fonts:** Inter (UI), JetBrains Mono (code/addresses)
-- **Background:** CSS grid lines + canvas with animated pulsing nodes that respond to mouse movement
-- **Components:** `.btn`, `.btn-secondary`, `.card`, `.badge`, `.input`, `.mono`
-- **Glow effects:** Ambient blurred orbs, hover glow on cards, accent shadows
-- **Nav:** Geometric icons with active glow underline, pulse animations
-
----
-
-## P2P Layer
-
-### WebRTC Data Channels
-- **Signaling:** Relay forwards `offer`/`answer`/`ice` messages between peers
-- **STUN:** `stun:stun.l.google.com:19302`
-- **Conflict avoidance:** Only the peer with the "lower" public key initiates (prevents double-connect)
-- **Data format:** JSON `{ type: "gossip", object: SignedObject }`
-
-### Gossip Protocol
-- New objects are forwarded to all connected P2P peers
-- Dedup by seen-set (object ID)
-- Incoming gossip objects are validated (signature + hash) before accepting
-- Objects from gossip are cached to IndexedDB same as relay objects
-
-### Offline Support
-- **Outbox:** Objects created while disconnected are queued in IndexedDB
-- **Flush on reconnect:** Outbox drains when relay connection re-establishes
-- **Cache cursors:** Each subscription tracks its latest timestamp; on reconnect, subscribes with `since` to avoid re-fetching
-
----
-
-## Encrypted DMs
-
-### Flow
-1. Sender looks up recipient's X25519 public key from their profile object
-2. Generates fresh ephemeral X25519 keypair (per-message forward secrecy)
-3. ECDH: `sharedSecret = X25519(ephemeral_private, recipient_public)`
-4. HKDF: `aesKey = HKDF(sharedSecret, ephemeralPublicKey, "agora-dm-v1")`
-5. Encrypt: `AES-256-GCM(plaintext, aesKey, random_nonce)`
-6. Publish as `dm` object with ciphertext + ephemeral public key + nonce
-
-### Sender-side display
-- Sender cannot decrypt their own outgoing DMs (encrypted with recipient's key)
-- Outgoing plaintext stored in `localStorage` keyed by object ID
-- Loaded back on page refresh for display
-
-### Key Discovery
-- Each client auto-publishes a `profile` object containing their X25519 public key on connect
-- DM UI shows "E2E encryption pending" if recipient's key hasn't been received yet
-
----
-
-## Tests
-
-34 tests across 3 test files:
-
-| File | Tests | Coverage |
-|------|-------|----------|
-| `crypto.test.ts` | 20 | Canonical JSON, base64, SHA-256, Ed25519 sign/verify, BIP-39 mnemonic generation/validation, deterministic derivation, HKDF |
-| `objects.test.ts` | 8 | Object creation, hash integrity, signature validation, tamper detection, JSON round-trip |
-| `encryption.test.ts` | 6 | X25519 deterministic derivation, encrypt/decrypt round-trip, wrong key rejection, forward secrecy verification, unicode |
-
-```bash
-pnpm --filter @agora/core test   # 34 tests, <300ms
-```
-
----
-
-## Deployment
-
-### Relay (`agora-relay`)
-- **Platform:** Fly.io, sjc region
-- **Container:** Node.js 22-slim, multi-stage Docker build
-- **Storage:** 1GB persistent volume at `/data`
-- **VM:** shared-cpu-1x, 256MB RAM
-- **Auto-scaling:** stops when idle, starts on request
-
-### Web Client (`agora-web`)
-- **Platform:** Fly.io, sjc region
-- **Container:** nginx:alpine serving static SPA
-- **Routing:** SPA fallback (`try_files $uri /index.html`)
-- **Relay URL:** `wss://agora-relay.fly.dev` (production), `ws://localhost:9800` (dev)
-
-### Local Development
-```bash
-cd agora
-pnpm install
-node packages/relay/dist/index.js &   # relay on :9800
-pnpm --filter @agora/web dev          # web on :5173
-```
-
----
-
-## What's Implemented vs Planned
+## Roadmap
 
 ### Done
-- [x] Phase 0: Core library (crypto, identity, object model)
-- [x] Phase 1: Relay + live feed
-- [x] Phase 2: Persistence + offline (IndexedDB cache, outbox, sync cursors)
-- [x] Phase 3: Browser-to-browser P2P (WebRTC + gossip)
-- [x] Phase 4: Encrypted DMs (X25519 ECDH + AES-256-GCM)
-- [x] Topic-based feeds with pre-defined topics
-- [x] Single-level post replies
-- [x] Profile editing (username)
-- [x] GeoIP location on peers
-- [x] Orange matrix UI theme with animated grid canvas
-- [x] Production deployment (Fly.io)
+- [x] Cryptographic identity (BIP-39 + Ed25519)
+- [x] Signed content-addressed objects
+- [x] WebRTC P2P via BitTorrent tracker
+- [x] Single-swarm discovery with tiebreaker
+- [x] E2E encrypted DMs with forward secrecy
+- [x] Direct peer messaging (pubkey-addressed)
+- [x] Read receipts (queued → sent → read)
+- [x] Contact management with online status
+- [x] Account sync (self-encrypted)
+- [x] Seed mode (browser community hosting)
+- [x] Seeder CLI with dashboard + DHT
+- [x] Desktop layout (sidebar nav)
+- [x] Image compression + 5MB upload
+- [x] Lobby with pins, files, inbox
 
-### Not Yet Built
-- [ ] Phase 5: Communities + moderation (moderator actions, client-side filtering)
-- [ ] Follows / following-only feed
-- [ ] Reactions (emoji on posts)
-- [ ] Delete objects
-- [ ] Media attachments
-- [ ] Mobile-responsive layout
-- [ ] Custom relay URL in settings UI
-- [ ] Social recovery / multi-device sync
+### Planned
+- [ ] Voice/video calls (WebRTC media tracks)
+- [ ] Vanity URLs (name.pubkey-prefix)
+- [ ] WebTorrent file sharing (magnet links)
+- [ ] AI concierge (Ollama in seeder)
+- [ ] Group DMs
+- [ ] npm publish (@riotp2p/seed)
+- [ ] Contribution badges on profile
