@@ -27,6 +27,7 @@ export class GossipManager {
     swarm.onData((peerId, data) => {
       try {
         const msg = JSON.parse(data);
+        if (msg.type) console.log(`[Gossip] ← ${msg.type}${msg.object ? ' (' + msg.object.body?.type + ')' : ''}`);
         switch (msg.type) {
           case 'gossip':
             if (msg.object) this.handleGossip(msg.object);
