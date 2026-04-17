@@ -143,15 +143,19 @@ export class FeedManager {
   }
 
   async publish(obj: SignedObject): Promise<void> {
-    await this.ingestObject(obj);
-
-    // DMs and read receipts are point-to-point, don't broadcast
+    // Send first (low latency), then persist
     if (obj.body.type !== 'dm' && obj.body.type !== 'read_receipt') {
       this.gossip.gossip(obj);
     }
 
+    // Always persist own published objects (even if already marked seen by gossipTo)
+    this.seen.add(obj.id);
+    this.trackAuthorSeq(obj);
+    this.cache.put(obj);
+    this.emitObject(obj);
+
     if (this.swarmManager.getConnectedCount() === 0) {
-      await this.outbox.add(obj);
+      this.outbox.add(obj);
     }
   }
 }

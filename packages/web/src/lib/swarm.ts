@@ -139,8 +139,8 @@ export class SwarmManager {
 
   private safeSend(channel: RTCDataChannel, data: string): boolean {
     if (channel.readyState !== 'open') return false;
-    // Backpressure: don't send if buffer is too full (16KB threshold)
-    if (channel.bufferedAmount > 16384) return false;
+    // Backpressure: don't send if buffer exceeds 1MB
+    if (channel.bufferedAmount > 1_048_576) return false;
     try { channel.send(data); return true; }
     catch { return false; }
   }
