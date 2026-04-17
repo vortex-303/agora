@@ -98,20 +98,57 @@
 		pinImage = null;
 	}
 
-	function shareFile(e: Event) {
+	async function compressImage(dataUrl: string, maxSize: number): Promise<string> {
+		return new Promise((resolve) => {
+			const img = new Image();
+			img.onload = () => {
+				const canvas = document.createElement('canvas');
+				let { width, height } = img;
+				// Scale down if too large
+				const maxDim = 1200;
+				if (width > maxDim || height > maxDim) {
+					const ratio = Math.min(maxDim / width, maxDim / height);
+					width = Math.round(width * ratio);
+					height = Math.round(height * ratio);
+				}
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d')!;
+				ctx.drawImage(img, 0, 0, width, height);
+				// Try decreasing quality until under maxSize
+				let quality = 0.8;
+				let result = canvas.toDataURL('image/jpeg', quality);
+				while (result.length > maxSize && quality > 0.1) {
+					quality -= 0.1;
+					result = canvas.toDataURL('image/jpeg', quality);
+				}
+				resolve(result);
+			};
+			img.src = dataUrl;
+		});
+	}
+
+	async function shareFile(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
 		if (!file) return;
-		if (file.size > 500_000) { alert('File must be under 500KB'); return; }
+		if (file.size > 5_000_000) { alert('File must be under 5MB'); return; }
 		const reader = new FileReader();
-		reader.onload = () => {
+		reader.onload = async () => {
 			const identity = identityState.identity;
 			const fm = appState.feedManager;
 			if (!identity || !fm) return;
+			let dataUrl = reader.result as string;
+			// Compress images to fit in gossip objects
+			if (file.type.startsWith('image/')) {
+				dataUrl = await compressImage(dataUrl, 800_000);
+			} else if (dataUrl.length > 2_000_000) {
+				alert('Non-image files must be under 2MB'); return;
+			}
 			const state = fm.getAuthorState(identity.publicKeyBase64);
 			const obj = createObject({
 				author: identity.publicKeyBase64, privateKey: identity.privateKey,
 				type: 'post',
-				content: { text: file.name, image: reader.result as string } as PostContent,
+				content: { text: file.name, image: dataUrl } as PostContent,
 				seq: state.seq + 1, prev: state.lastId,
 			});
 			addToFeed(obj);
@@ -120,16 +157,18 @@
 		reader.readAsDataURL(file);
 	}
 
-	function handlePinPaste(e: ClipboardEvent) {
+	async function handlePinPaste(e: ClipboardEvent) {
 		const items = e.clipboardData?.items;
 		if (!items) return;
 		for (const item of items) {
 			if (item.type.startsWith('image/')) {
 				e.preventDefault();
 				const file = item.getAsFile();
-				if (!file || file.size > 500_000) return;
+				if (!file || file.size > 5_000_000) return;
 				const reader = new FileReader();
-				reader.onload = () => { pinImage = reader.result as string; };
+				reader.onload = async () => {
+					pinImage = await compressImage(reader.result as string, 800_000);
+				};
 				reader.readAsDataURL(file);
 				return;
 			}
@@ -235,7 +274,7 @@
 					<button class="img-btn" onclick={() => fileInput.click()}>🖼</button>
 					<input bind:this={fileInput} type="file" accept="image/*" onchange={(e) => {
 						const f = (e.target as HTMLInputElement).files?.[0];
-						if (f && f.size < 500_000) { const r = new FileReader(); r.onload = () => { pinImage = r.result as string; }; r.readAsDataURL(f); }
+						if (f && f.size < 5_000_000) { const r = new FileReader(); r.onload = async () => { pinImage = f.type.startsWith('image/') ? await compressImage(r.result as string, 800_000) : r.result as string; }; r.readAsDataURL(f); }
 					}} hidden />
 					<button class="btn btn-sm" onclick={addPin} disabled={!pinText.trim() && !pinImage}>Pin</button>
 				</div>

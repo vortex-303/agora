@@ -7,7 +7,8 @@ export type ObjectType =
   | 'dm'
   | 'community'
   | 'modaction'
-  | 'encrypted_state';
+  | 'encrypted_state'
+  | 'read_receipt';
 
 // Content types
 
@@ -67,6 +68,10 @@ export interface EncryptedStateContent {
   nonce: string; // base64
 }
 
+export interface ReadReceiptContent {
+  messageId: string; // id of the DM object being acknowledged
+}
+
 export type ObjectContent =
   | PostContent
   | FollowContent
@@ -76,7 +81,8 @@ export type ObjectContent =
   | DMContent
   | CommunityContent
   | ModActionContent
-  | EncryptedStateContent;
+  | EncryptedStateContent
+  | ReadReceiptContent;
 
 // Core object model
 

@@ -310,8 +310,8 @@
 							<span class="msg-meta">
 								<span class="msg-time">{formatTime(msg.timestamp)}</span>
 								{#if msg.outgoing && msg.status}
-									<span class="msg-status" class:status-queued={msg.status === 'queued'} class:status-sent={msg.status === 'sent'}>
-										{msg.status === 'queued' ? '&#x23F3;' : '&#x2713;'}
+									<span class="msg-status" class:status-queued={msg.status === 'queued'} class:status-sent={msg.status === 'sent'} class:status-read={msg.status === 'read'}>
+										{msg.status === 'queued' ? '&#x23F3;' : msg.status === 'read' ? '&#x2713;&#x2713;' : '&#x2713;'}
 									</span>
 								{/if}
 							</span>
@@ -484,7 +484,8 @@
 	.msg-time { font-size: 0.6rem; color: var(--text-tertiary); white-space: nowrap; }
 	.msg-status { font-size: 0.65rem; }
 	.status-queued { color: var(--text-tertiary); }
-	.status-sent { color: #4ade80; }
+	.status-sent { color: var(--text-tertiary); }
+	.status-read { color: #4ade80; }
 	.chat-compose {
 		display: flex; gap: 8px; padding: 12px 20px;
 		border-top: 1px solid rgba(255,255,255,0.04);

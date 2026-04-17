@@ -14,6 +14,7 @@ export type {
   ModActionContent,
   StateCategory,
   EncryptedStateContent,
+  ReadReceiptContent,
   SubscriptionFilter,
   SubscribeMessage,
   PublishMessage,

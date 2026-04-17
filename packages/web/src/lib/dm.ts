@@ -7,12 +7,13 @@ import {
   fromBase64,
   type SignedObject,
   type DMContent,
+  type ReadReceiptContent,
   type Identity,
 } from '@agora/core';
 import type { FeedManager } from './feed.js';
 import { CacheManager } from './cache.js';
 
-export type DMStatus = 'queued' | 'sent' | 'delivered';
+export type DMStatus = 'queued' | 'sent' | 'read';
 
 export interface DecryptedDM {
   id: string;
@@ -35,8 +36,8 @@ export class DMManager {
   private conversations = new Map<string, DecryptedDM[]>();
   private changeHandlers: (() => void)[] = [];
   private activePartner: string | null = null;
-  // Track which outgoing DMs have been gossiped to at least one peer
   private sentIds = new Set<string>();
+  private readReceiptsSent = new Set<string>();
 
   constructor(feedManager: FeedManager, identity: Identity) {
     this.feedManager = feedManager;
@@ -67,6 +68,8 @@ export class DMManager {
     this.feedManager.onObject(async (obj) => {
       if (obj.body.type === 'dm') {
         await this.handleDMObject(obj);
+      } else if (obj.body.type === 'read_receipt') {
+        this.handleReadReceipt(obj);
       }
     });
 
@@ -100,6 +103,32 @@ export class DMManager {
       this.feedManager.leaveDMSwarm(this.activePartner);
       this.feedManager.leaveUserSwarm(this.activePartner);
       this.activePartner = null;
+    }
+  }
+
+  private async sendReadReceipt(messageId: string): Promise<void> {
+    const state = this.feedManager.getAuthorState(this.identity.publicKeyBase64);
+    const obj = createObject({
+      author: this.identity.publicKeyBase64,
+      privateKey: this.identity.privateKey,
+      type: 'read_receipt',
+      content: { messageId } as ReadReceiptContent,
+      seq: state.seq + 1,
+      prev: state.lastId,
+    });
+    await this.feedManager.publish(obj);
+  }
+
+  private handleReadReceipt(obj: SignedObject): void {
+    const content = obj.body.content as ReadReceiptContent;
+    // Find the message and update its status to 'read'
+    for (const [, msgs] of this.conversations) {
+      const msg = msgs.find(m => m.id === content.messageId);
+      if (msg && msg.outgoing && msg.status !== 'read') {
+        msg.status = 'read';
+        this.emitChange();
+        return;
+      }
     }
   }
 
@@ -144,6 +173,12 @@ export class DMManager {
       this.sentIds.add(obj.id);
     }
 
+    // Send read receipt for incoming messages we just decrypted
+    if (isIncoming && !this.readReceiptsSent.has(obj.id)) {
+      this.readReceiptsSent.add(obj.id);
+      this.sendReadReceipt(obj.id);
+    }
+
     const dm: DecryptedDM = {
       id: obj.id,
       from: obj.body.author,
@@ -157,8 +192,8 @@ export class DMManager {
     const conv = this.conversations.get(partner) || [];
     const existing = conv.findIndex(m => m.id === dm.id);
     if (existing !== -1) {
-      // Update status if it changed
-      if (dm.status && conv[existing].status !== dm.status) {
+      // Update status if it changed (never downgrade from 'read')
+      if (dm.status && conv[existing].status !== 'read' && conv[existing].status !== dm.status) {
         conv[existing].status = dm.status;
         this.emitChange();
       }
