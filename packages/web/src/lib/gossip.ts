@@ -86,25 +86,31 @@ export class GossipManager {
   private async sendWatermarksToNewPeers(): Promise<void> {
     const authors = await this.buildWatermarks();
     const authorCount = Object.keys(authors).length;
-    if (authorCount === 0) return;
+    if (authorCount === 0) {
+      console.log('[Gossip] No watermarks to send (empty cache)');
+      return;
+    }
 
     const msg = JSON.stringify({ type: 'watermark', authors });
-
-    // We don't have individual peer tracking in SwarmManager,
-    // so broadcast watermarks — recipients will dedup via seen set
-    this.swarm.broadcast(msg);
+    const sent = this.swarm.broadcast(msg);
+    console.log(`[Gossip] Sent watermarks (${authorCount} authors) to ${sent} peers`);
   }
 
   private async handleWatermark(peerId: string, peerAuthors: Watermarks): Promise<void> {
     const myWatermarks = await this.buildWatermarks();
+    const peerAuthorCount = Object.keys(peerAuthors).length;
+    console.log(`[Gossip] Received watermarks from peer (${peerAuthorCount} authors)`);
 
+    let requested = 0;
     for (const [author, peerSeq] of Object.entries(peerAuthors)) {
       const mySeq = myWatermarks[author] || 0;
       if (peerSeq > mySeq) {
         this.swarm.sendToPeer(peerId,
           JSON.stringify({ type: 'request', author, afterSeq: mySeq }));
+        requested++;
       }
     }
+    if (requested > 0) console.log(`[Gossip] Requested ${requested} authors from peer`);
 
     const myAuthorCount = Object.keys(myWatermarks).length;
     if (myAuthorCount > 0) {
@@ -128,11 +134,13 @@ export class GossipManager {
         this.swarm.sendToPeer(peerId, msg);
         this._objectsServed += matching.length;
         this._bytesServed += msg.length;
+        console.log(`[Gossip] Served ${matching.length} objects to peer (types: ${matching.map(o => o.body.type).join(',')})`);
       }
     } catch { /* cache not ready */ }
   }
 
   private handleResponse(objects: SignedObject[]): void {
+    let ingested = 0;
     for (const obj of objects) {
       if (this.seen.has(obj.id)) continue;
       this.seen.add(obj.id);
@@ -141,8 +149,10 @@ export class GossipManager {
       if (!result.valid) continue;
 
       this._objectsReceived++;
+      ingested++;
       for (const h of this.objectHandlers) h(obj);
     }
+    if (ingested > 0) console.log(`[Gossip] Received ${ingested} objects from peer (types: ${objects.filter(o => !this.seen.has(o.id) || ingested > 0).map(o => o.body.type).slice(0,5).join(',')})`);
   }
 
   private handleGossip(obj: SignedObject): void {

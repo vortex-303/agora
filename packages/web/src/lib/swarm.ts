@@ -2,15 +2,16 @@ import { sha1 } from '@noble/hashes/sha1';
 import { bytesToHex } from '@noble/hashes/utils';
 
 const TRACKER_URL = 'wss://tracker.openwebtorrent.com';
-const ANNOUNCE_INTERVAL = 30_000;
+const ANNOUNCE_INTERVAL = 15_000;
 const OFFERS_PER_ANNOUNCE = 3;
-const ICE_TIMEOUT = 500;
+const ICE_TIMEOUT = 2000;
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
   ],
+  iceCandidatePoolSize: 5,
 };
 
 function topicToInfohash(topic: string): string {
@@ -151,10 +152,17 @@ export class SwarmManager {
     const infohash = topicToInfohash(topic);
     const infohashBinary = hexToBinary(infohash);
     this.swarmInfohashes.set(topic, infohashBinary);
-    console.log(`[SwarmManager] Joining: ${topic.slice(0, 40)}`);
+    console.log(`[SwarmManager] Joining: ${topic.slice(0, 40)} (${this.swarmInfohashes.size} total)`);
 
     if (this.tracker.isConnected()) {
+      // Announce the new swarm immediately
       this.announce(infohashBinary);
+      // Also re-announce all existing swarms (peers in overlapping swarms)
+      for (const [, ihBin] of this.swarmInfohashes) {
+        if (ihBin !== infohashBinary && !this.announceTimers.has(ihBin + ':boost')) {
+          setTimeout(() => this.announce(ihBin), 2000);
+        }
+      }
     }
   }
 
@@ -168,13 +176,19 @@ export class SwarmManager {
   }
 
   private async announce(infohashBinary: string): Promise<void> {
-    if (!this.tracker.isConnected()) return;
+    if (!this.tracker.isConnected()) {
+      console.log('[SwarmManager] Skipping announce — tracker not connected');
+      return;
+    }
 
     // Create offers in parallel
     const offerPromises = Array.from({ length: OFFERS_PER_ANNOUNCE }, () => this.createOffer(infohashBinary));
     const offers = (await Promise.all(offerPromises)).filter(Boolean) as Array<{ offer: RTCSessionDescriptionInit; offer_id: string }>;
 
-    if (offers.length === 0) return;
+    if (offers.length === 0) {
+      console.warn('[SwarmManager] No offers created — announce skipped');
+      return;
+    }
 
     this.tracker.send({
       action: 'announce',
@@ -186,6 +200,7 @@ export class SwarmManager {
       left: 1,
       offers,
     });
+    console.log(`[SwarmManager] Announced (${offers.length} offers, ${this.swarmInfohashes.size} swarms active)`);
 
     // Schedule re-announce
     const existing = this.announceTimers.get(infohashBinary);
@@ -194,32 +209,43 @@ export class SwarmManager {
   }
 
   private async createOffer(infohashBinary: string): Promise<{ offer: RTCSessionDescriptionInit; offer_id: string } | null> {
-    const pc = new RTCPeerConnection(RTC_CONFIG);
-    const channel = pc.createDataChannel('riot', { ordered: true });
-    const offerId = randomBinaryId();
+    try {
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      const channel = pc.createDataChannel('riot', { ordered: true });
+      const offerId = randomBinaryId();
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await waitForIce(pc);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitForIce(pc);
 
-    this.pendingOffers.set(offerId, { pc, channel, offerId, infohashBinary });
-    return { offer: pc.localDescription!, offer_id: offerId };
+      this.pendingOffers.set(offerId, { pc, channel, offerId, infohashBinary });
+      return { offer: pc.localDescription!, offer_id: offerId };
+    } catch (e) {
+      console.warn('[SwarmManager] createOffer failed:', e);
+      return null;
+    }
   }
 
   private async handleTrackerMessage(msg: any): Promise<void> {
     if (msg.action !== 'announce') return;
 
     if (msg.offer && msg.offer_id && msg.peer_id) {
-      // Incoming offer — find which swarm it's for
+      console.log('[SwarmManager] Got offer from peer');
       const ihBin = msg.info_hash;
       await this.handleOffer(msg.peer_id, msg.offer, msg.offer_id, ihBin);
     } else if (msg.answer && msg.offer_id) {
+      console.log('[SwarmManager] Got answer for our offer');
       this.handleAnswer(msg.peer_id, msg.answer, msg.offer_id);
+    } else if (msg.info_hash) {
+      console.log(`[SwarmManager] Tracker ack: ${msg.incomplete || 0} peers in swarm`);
     }
   }
 
   private async handleOffer(remotePeerId: string, offer: RTCSessionDescriptionInit, offerId: string, infohashBinary: string): Promise<void> {
-    if (this.connectedPeers.has(remotePeerId)) return;
+    if (this.connectedPeers.has(remotePeerId)) {
+      console.log('[SwarmManager] Already connected to this peer, skipping offer');
+      return;
+    }
 
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
@@ -258,7 +284,9 @@ export class SwarmManager {
   private setupChannel(remotePeerId: string, pc: RTCPeerConnection, channel: RTCDataChannel): void {
     channel.onopen = () => {
       if (this.connectedPeers.has(remotePeerId)) {
-        pc.close();
+        // Already connected to this peer via another swarm — ignore silently
+        // Don't close the PC as it may share transport with the active connection
+        channel.close();
         return;
       }
       this.connectedPeers.set(remotePeerId, channel);
@@ -269,11 +297,34 @@ export class SwarmManager {
       };
 
       channel.onclose = () => {
+        console.log(`[SwarmManager] Peer disconnected (${this.connectedPeers.size - 1} remaining)`);
         this.connectedPeers.delete(remotePeerId);
         for (const h of this.peerChangeHandlers) h();
       };
 
       for (const h of this.peerChangeHandlers) h();
+    };
+
+    channel.onerror = (e) => {
+      console.warn('[SwarmManager] DataChannel error:', e);
+    };
+
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState;
+      if (state === 'failed' || state === 'closed') {
+        console.log(`[SwarmManager] WebRTC ${state}`);
+        this.connectedPeers.delete(remotePeerId);
+      } else if (state === 'connecting') {
+        console.log('[SwarmManager] WebRTC connecting...');
+      } else if (state === 'connected') {
+        console.log('[SwarmManager] WebRTC connected, waiting for DataChannel...');
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed') {
+        console.warn('[SwarmManager] ICE failed — NAT traversal unsuccessful');
+      }
     };
   }
 
@@ -323,9 +374,26 @@ export class SwarmManager {
 function waitForIce(pc: RTCPeerConnection): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') { resolve(); return; }
-    const timeout = setTimeout(resolve, ICE_TIMEOUT);
+    let candidateCount = 0;
+    const timeout = setTimeout(() => {
+      console.log(`[ICE] Timed out with ${candidateCount} candidates`);
+      resolve();
+    }, ICE_TIMEOUT);
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        candidateCount++;
+      } else {
+        // null candidate = gathering complete
+        console.log(`[ICE] Complete: ${candidateCount} candidates`);
+        clearTimeout(timeout);
+        resolve();
+      }
+    };
+
     pc.onicegatheringstatechange = () => {
       if (pc.iceGatheringState === 'complete') {
+        console.log(`[ICE] State complete: ${candidateCount} candidates`);
         clearTimeout(timeout);
         resolve();
       }

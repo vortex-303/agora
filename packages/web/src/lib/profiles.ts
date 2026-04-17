@@ -34,8 +34,21 @@ export class ProfileManager {
       this.trackSeen(obj.body.author, obj.body.timestamp);
     });
 
-    await this.publishProfile();
+    // Store the profile object for re-broadcasting
+    this.myProfileObj = await this.publishProfile();
+
+    // Re-broadcast profile to every new peer that connects
+    this.feedManager.swarmManager.onPeerChange(() => {
+      if (this.myProfileObj) {
+        console.log('[Profile] Broadcasting profile to peers');
+        this.feedManager.swarmManager.broadcast(
+          JSON.stringify({ type: 'gossip', object: this.myProfileObj })
+        );
+      }
+    });
   }
+
+  private myProfileObj: import('@agora/core').SignedObject | null = null;
 
   private loadCachedProfiles(): void {
     try {
@@ -56,7 +69,7 @@ export class ProfileManager {
     } catch {}
   }
 
-  private async publishProfile(): Promise<void> {
+  private async publishProfile(): Promise<import('@agora/core').SignedObject> {
     const x25519 = deriveX25519FromMnemonic(this.identity.mnemonic);
     const state = this.feedManager.getAuthorState(this.identity.publicKeyBase64);
 
@@ -77,6 +90,7 @@ export class ProfileManager {
       prev: state.lastId,
     });
     await this.feedManager.publish(obj);
+    return obj;
   }
 
   private handleProfile(obj: SignedObject): void {
