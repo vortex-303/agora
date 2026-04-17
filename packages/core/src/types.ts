@@ -92,6 +92,7 @@ export interface ObjectBody {
   prev?: string; // hash of author's previous object
   seq: number; // sequence number in author's feed
   timestamp: number; // unix ms
+  ttl?: number; // time to live in hours (default: no expiry for own data, 168 (7d) for others)
   type: ObjectType;
 }
 

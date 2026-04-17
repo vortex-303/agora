@@ -40,7 +40,7 @@ export class CacheManager {
   async put(obj: SignedObject): Promise<void> {
     const db = this.getDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(OBJECTS_STORE, 'readwrite');
+      const tx = db.transaction(OBJECTS_STORE, 'readwrite', { durability: 'relaxed' });
       tx.objectStore(OBJECTS_STORE).put(obj);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -51,7 +51,7 @@ export class CacheManager {
     if (objects.length === 0) return;
     const db = this.getDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(OBJECTS_STORE, 'readwrite');
+      const tx = db.transaction(OBJECTS_STORE, 'readwrite', { durability: 'relaxed' });
       const store = tx.objectStore(OBJECTS_STORE);
       for (const obj of objects) {
         store.put(obj);
@@ -114,7 +114,7 @@ export class CacheManager {
   async setCursor(subscriptionId: string, timestamp: number): Promise<void> {
     const db = this.getDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(CURSORS_STORE, 'readwrite');
+      const tx = db.transaction(CURSORS_STORE, 'readwrite', { durability: 'relaxed' });
       tx.objectStore(CURSORS_STORE).put(timestamp, subscriptionId);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -127,5 +127,39 @@ export class CacheManager {
     if (!current || obj.body.timestamp > current) {
       await this.setCursor(subscriptionId, obj.body.timestamp);
     }
+  }
+
+  // Evict expired objects (TTL-based)
+  async evictExpired(myPubkey: string): Promise<number> {
+    const db = this.getDB();
+    const all = await this.listByTimestamp();
+    const now = Date.now();
+    const DEFAULT_TTL_HOURS = 168; // 7 days for others' data
+    let evicted = 0;
+
+    const tx = db.transaction(OBJECTS_STORE, 'readwrite', { durability: 'relaxed' });
+    const store = tx.objectStore(OBJECTS_STORE);
+
+    for (const obj of all) {
+      // Never evict own data
+      if (obj.body.author === myPubkey) continue;
+      // Never evict profiles or encrypted_state
+      if (obj.body.type === 'profile' || obj.body.type === 'encrypted_state') continue;
+
+      const ttlHours = obj.body.ttl || DEFAULT_TTL_HOURS;
+      const expiresAt = obj.body.timestamp + ttlHours * 3600_000;
+      if (now > expiresAt) {
+        store.delete(obj.id);
+        evicted++;
+      }
+    }
+
+    return new Promise((resolve) => {
+      tx.oncomplete = () => {
+        if (evicted > 0) console.log(`[Cache] Evicted ${evicted} expired objects`);
+        resolve(evicted);
+      };
+      tx.onerror = () => resolve(0);
+    });
   }
 }

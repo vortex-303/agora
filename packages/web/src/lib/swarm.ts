@@ -29,6 +29,12 @@ function randomId(): string {
   return Array.from(buf, b => String.fromCharCode(b)).join('');
 }
 
+function pubkeyToTrackerId(pubkey: string): string {
+  // SHA-1 of pubkey, truncated to 20 bytes (tracker peer ID format)
+  const hash = sha1(new TextEncoder().encode(pubkey));
+  return Array.from(hash.slice(0, 20), b => String.fromCharCode(b)).join('');
+}
+
 function waitForIce(pc: RTCPeerConnection): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') { resolve(); return; }
@@ -72,7 +78,8 @@ export class SwarmManager {
   private topics = new Set<string>();
 
   constructor(publicKey: string) {
-    this.myTrackerId = randomId();
+    // Derive tracker peer ID from pubkey so tiebreaker can't be spoofed
+    this.myTrackerId = pubkeyToTrackerId(publicKey);
     this.myPubkey = publicKey;
     this.connectTracker();
     this.announceTimer = setInterval(() => this.announce(), ANNOUNCE_INTERVAL);
@@ -93,21 +100,38 @@ export class SwarmManager {
   }
 
   sendToPubkey(pubkey: string, data: string): boolean {
+    // Try direct send first
     const tid = this.pubkeyMap.get(pubkey);
-    if (!tid) return false;
-    const peer = this.peers.get(tid);
-    if (peer?.ready && peer.channel.readyState === 'open') {
-      peer.channel.send(data);
-      return true;
+    if (tid) {
+      const peer = this.peers.get(tid);
+      if (peer?.ready && peer.channel.readyState === 'open') {
+        peer.channel.send(data);
+        return true;
+      }
+    }
+    // Fallback: relay through any connected peer
+    const relayMsg = JSON.stringify({ _relay: { to: pubkey, data } });
+    for (const peer of this.peers.values()) {
+      if (peer.ready && peer.channel.readyState === 'open') {
+        peer.channel.send(relayMsg);
+        return true;
+      }
     }
     return false;
   }
 
   isPubkeyConnected(pubkey: string): boolean {
+    // Direct connection
     const tid = this.pubkeyMap.get(pubkey);
-    if (!tid) return false;
-    const peer = this.peers.get(tid);
-    return (peer?.ready && peer.channel.readyState === 'open') || false;
+    if (tid) {
+      const peer = this.peers.get(tid);
+      if (peer?.ready && peer.channel.readyState === 'open') return true;
+    }
+    // Can relay through any peer
+    for (const peer of this.peers.values()) {
+      if (peer.ready && peer.channel.readyState === 'open') return true;
+    }
+    return false;
   }
 
   broadcast(data: string): number {
@@ -296,19 +320,37 @@ export class SwarmManager {
       channel.onmessage = (event) => {
         const data = event.data as string;
 
-        // Pubkey handshake (first message from peer)
-        if (!peer.pubkey) {
-          try {
-            const msg = JSON.parse(data);
-            if (msg._riot_hello) {
-              peer.pubkey = msg._riot_hello;
-              this.pubkeyMap.set(msg._riot_hello, trackerId);
-              console.log(`[Swarm] Identified: ${msg._riot_hello.slice(0, 12)}...`);
-              for (const h of this.peerHandlers) h();
-              return;
+        try {
+          const parsed = JSON.parse(data);
+
+          // Pubkey handshake
+          if (parsed._riot_hello && !peer.pubkey) {
+            peer.pubkey = parsed._riot_hello;
+            this.pubkeyMap.set(parsed._riot_hello, trackerId);
+            console.log(`[Swarm] Identified: ${parsed._riot_hello.slice(0, 12)}...`);
+            for (const h of this.peerHandlers) h();
+            return;
+          }
+
+          // Relay: forward message to target pubkey
+          if (parsed._relay) {
+            const target = parsed._relay.to;
+            if (target === this.myPubkey) {
+              // It's for us — process the inner data
+              for (const h of this.dataHandlers) h(trackerId, parsed._relay.data);
+            } else {
+              // Forward to target if we're connected to them
+              const targetTid = this.pubkeyMap.get(target);
+              if (targetTid) {
+                const targetPeer = this.peers.get(targetTid);
+                if (targetPeer?.ready && targetPeer.channel.readyState === 'open') {
+                  targetPeer.channel.send(data); // forward as-is
+                }
+              }
             }
-          } catch {}
-        }
+            return;
+          }
+        } catch {}
 
         // All other messages → data handlers (gossip)
         for (const h of this.dataHandlers) h(trackerId, data);

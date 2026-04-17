@@ -68,6 +68,9 @@ export class FeedManager {
     this.swarmManager.joinSwarm(riotTopic('user', this.identity.publicKeyBase64));
 
     this.emitStatus('connecting');
+
+    // Evict expired objects on startup
+    this.cache.evictExpired(this.identity.publicKeyBase64);
   }
 
   joinUserSwarm(pubkey: string): void {
