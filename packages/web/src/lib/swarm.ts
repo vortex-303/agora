@@ -1,7 +1,11 @@
 import { sha1 } from '@noble/hashes/sha1';
 import { bytesToHex } from '@noble/hashes/utils';
 
-const TRACKER_URL = 'wss://tracker.openwebtorrent.com';
+const TRACKER_URLS = [
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.webtorrent.dev',
+  'wss://tracker.btorrent.xyz',
+];
 const NETWORK_TOPIC = 'riot:network:v1';
 const ANNOUNCE_INTERVAL = 20_000;
 const ICE_TIMEOUT = 3000;
@@ -170,13 +174,21 @@ export class SwarmManager {
 
   // --- Tracker WebSocket ---
 
+  private trackerIndex = 0;
+
   private connectTracker(): void {
-    try { this.ws = new WebSocket(TRACKER_URL); } catch { this.scheduleReconnect(); return; }
+    const url = TRACKER_URLS[this.trackerIndex % TRACKER_URLS.length];
+    try { this.ws = new WebSocket(url); } catch { this.trackerIndex++; this.scheduleReconnect(); return; }
+
+    const connectTimeout = setTimeout(() => {
+      this.ws?.close();
+    }, 5000);
 
     this.ws.onopen = () => {
+      clearTimeout(connectTimeout);
       this.reconnectDelay = 1000;
       this.trackerConnected = true;
-      console.log('[Swarm] Tracker connected');
+      console.log(`[Swarm] Tracker connected: ${url}`);
       for (const h of this.statusHandlers) h(true);
       this.announce();
     };
@@ -186,7 +198,9 @@ export class SwarmManager {
     };
 
     this.ws.onclose = () => {
+      clearTimeout(connectTimeout);
       this.trackerConnected = false;
+      this.trackerIndex++; // try next tracker on reconnect
       this.scheduleReconnect();
     };
 

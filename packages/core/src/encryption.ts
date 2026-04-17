@@ -76,15 +76,17 @@ export async function decryptDM(
 
 /**
  * Self-encrypt data using own X25519 keypair.
- * ECDH(myPrivate, myPublic) produces a deterministic shared secret.
+ * Per-object random salt ensures unique AES key per encryption (forward secrecy).
  */
 export async function selfEncrypt(
   plaintext: string,
   x25519Private: Uint8Array,
   x25519Public: Uint8Array
-): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array }> {
+): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array; salt: Uint8Array }> {
   const sharedSecret = x25519.getSharedSecret(x25519Private, x25519Public);
-  const aesKeyBytes = hkdf(sha256, sharedSecret, x25519Public, new TextEncoder().encode('riot-self-v1'), 32);
+  const salt = randomBytes(16);
+  const info = new Uint8Array([...new TextEncoder().encode('riot-self-v1'), ...salt]);
+  const aesKeyBytes = hkdf(sha256, sharedSecret, x25519Public, info, 32);
   const aesKey = await crypto.subtle.importKey('raw', toBuffer(aesKeyBytes), { name: 'AES-GCM' }, false, ['encrypt']);
 
   const nonce = randomBytes(12);
@@ -94,7 +96,7 @@ export async function selfEncrypt(
     new TextEncoder().encode(plaintext)
   );
 
-  return { ciphertext: new Uint8Array(encrypted), nonce };
+  return { ciphertext: new Uint8Array(encrypted), nonce, salt };
 }
 
 /**
@@ -104,10 +106,14 @@ export async function selfDecrypt(
   ciphertext: Uint8Array,
   nonce: Uint8Array,
   x25519Private: Uint8Array,
-  x25519Public: Uint8Array
+  x25519Public: Uint8Array,
+  salt?: Uint8Array
 ): Promise<string> {
   const sharedSecret = x25519.getSharedSecret(x25519Private, x25519Public);
-  const aesKeyBytes = hkdf(sha256, sharedSecret, x25519Public, new TextEncoder().encode('riot-self-v1'), 32);
+  const info = salt
+    ? new Uint8Array([...new TextEncoder().encode('riot-self-v1'), ...salt])
+    : new TextEncoder().encode('riot-self-v1');
+  const aesKeyBytes = hkdf(sha256, sharedSecret, x25519Public, info, 32);
   const aesKey = await crypto.subtle.importKey('raw', toBuffer(aesKeyBytes), { name: 'AES-GCM' }, false, ['decrypt']);
 
   const decrypted = await crypto.subtle.decrypt(

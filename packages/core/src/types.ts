@@ -66,6 +66,7 @@ export interface EncryptedStateContent {
   category: StateCategory;
   ciphertext: string; // base64
   nonce: string; // base64
+  salt?: string; // base64, per-object salt for forward secrecy
 }
 
 export interface ReadReceiptContent {

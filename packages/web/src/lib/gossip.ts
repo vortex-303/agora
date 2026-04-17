@@ -125,9 +125,16 @@ export class GossipManager {
 
     try {
       const objects = await this.cache.listByTimestamp();
+      // Priority: dm > read_receipt > profile > encrypted_state > post > other
+      const PRIORITY: Record<string, number> = { dm: 0, read_receipt: 1, profile: 2, encrypted_state: 3, post: 4 };
       const matching = objects
         .filter(o => o.body.author === author && o.body.seq > afterSeq)
-        .sort((a, b) => a.body.seq - b.body.seq)
+        .sort((a, b) => {
+          const pa = PRIORITY[a.body.type] ?? 5;
+          const pb = PRIORITY[b.body.type] ?? 5;
+          if (pa !== pb) return pa - pb; // priority first
+          return a.body.seq - b.body.seq; // then sequence
+        })
         .slice(0, 50);
 
       if (matching.length > 0) {

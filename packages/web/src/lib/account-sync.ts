@@ -97,7 +97,8 @@ export class AccountSync {
         fromBase64(content.ciphertext),
         fromBase64(content.nonce),
         this.x25519Private,
-        this.x25519Public
+        this.x25519Public,
+        content.salt ? fromBase64(content.salt) : undefined
       );
       const data = JSON.parse(plaintext);
 
@@ -122,7 +123,7 @@ export class AccountSync {
 
   private async publishState(category: StateCategory, data: any): Promise<void> {
     const plaintext = JSON.stringify(data);
-    const { ciphertext, nonce } = await selfEncrypt(plaintext, this.x25519Private, this.x25519Public);
+    const { ciphertext, nonce, salt } = await selfEncrypt(plaintext, this.x25519Private, this.x25519Public);
 
     const state = this.feedManager.getAuthorState(this.identity.publicKeyBase64);
     const obj = createObject({
@@ -133,6 +134,7 @@ export class AccountSync {
         category,
         ciphertext: toBase64(ciphertext),
         nonce: toBase64(nonce),
+        salt: toBase64(salt),
       } as EncryptedStateContent,
       seq: state.seq + 1,
       prev: state.lastId,
