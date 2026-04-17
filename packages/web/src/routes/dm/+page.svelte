@@ -102,15 +102,19 @@
 	}
 
 	function selectConversation(partner: string) {
-		activePartner = partner;
-		const dm = appState.dmManager;
-		const pm = appState.profileManager;
-		if (dm) {
-			dm.openConversation(partner);
-			messages = dm.getConversation(partner);
-		}
-		canEncrypt = !!pm?.getX25519Key(partner);
-		tick().then(scrollBottom);
+		activePartner = null;
+		tick().then(() => {
+			activePartner = partner;
+			markRead(partner);
+			const dm = appState.dmManager;
+			const pm = appState.profileManager;
+			if (dm) {
+				dm.openConversation(partner);
+				messages = dm.getConversation(partner);
+			}
+			canEncrypt = !!pm?.getX25519Key(partner);
+			tick().then(scrollBottom);
+		});
 	}
 
 	function closeChat() {
@@ -166,12 +170,33 @@
 		return new Date(ts).toLocaleDateString();
 	}
 
-	// Merged list: contacts + conversations (deduped, contacts first)
-	let mergedList = $derived((() => {
-		const seen = new Set<string>();
-		const items: Array<{ key: string; name: string; status: 'ready' | 'connecting' | 'offline'; lastMsg?: DecryptedDM; isContact: boolean }> = [];
+	// Track read state per conversation
+	const READ_KEY = 'riot_dm_read';
+	let readTimestamps = $state<Record<string, number>>({});
 
-		// Contacts first
+	function loadReadState(): Record<string, number> {
+		try { const s = localStorage.getItem(READ_KEY); if (s) return JSON.parse(s); } catch {}
+		return {};
+	}
+
+	function markRead(partner: string): void {
+		readTimestamps[partner] = Date.now();
+		try { localStorage.setItem(READ_KEY, JSON.stringify(readTimestamps)); } catch {}
+	}
+
+	function isUnread(partner: string, lastMsg?: DecryptedDM): boolean {
+		if (!lastMsg || lastMsg.outgoing) return false;
+		const readAt = readTimestamps[partner] || 0;
+		return lastMsg.timestamp > readAt;
+	}
+
+	// Merged list: sorted by most recent message, unread items first
+	let mergedList = $derived((() => {
+		readTimestamps = loadReadState(); // refresh
+		const seen = new Set<string>();
+		const items: Array<{ key: string; name: string; status: 'ready' | 'connecting' | 'offline'; lastMsg?: DecryptedDM; isContact: boolean; unread: boolean }> = [];
+
+		// Collect all contacts + conversations
 		for (const c of contacts) {
 			seen.add(c);
 			const conv = conversations.find(cv => cv.partner === c);
@@ -181,10 +206,10 @@
 				status: contactStatus(c),
 				lastMsg: conv?.lastMessage,
 				isContact: true,
+				unread: isUnread(c, conv?.lastMessage),
 			});
 		}
 
-		// Then conversations not in contacts
 		for (const conv of conversations) {
 			if (!seen.has(conv.partner)) {
 				seen.add(conv.partner);
@@ -194,9 +219,18 @@
 					status: contactStatus(conv.partner),
 					lastMsg: conv.lastMessage,
 					isContact: false,
+					unread: isUnread(conv.partner, conv.lastMessage),
 				});
 			}
 		}
+
+		// Sort: unread first, then by most recent message, contacts without messages last
+		items.sort((a, b) => {
+			if (a.unread !== b.unread) return a.unread ? -1 : 1;
+			const ta = a.lastMsg?.timestamp || 0;
+			const tb = b.lastMsg?.timestamp || 0;
+			return tb - ta;
+		});
 
 		return items;
 	})());
@@ -265,9 +299,12 @@
 							{/if}
 						</div>
 						{#if item.lastMsg}
-							<div class="conv-preview">{item.lastMsg.outgoing ? 'You: ' : ''}{item.lastMsg.text.slice(0, 40)}</div>
+							<div class="conv-preview" class:unread-preview={item.unread}>{item.lastMsg.outgoing ? 'You: ' : ''}{item.lastMsg.text.slice(0, 40)}</div>
 						{:else}
 							<div class="conv-preview">No messages yet</div>
+						{/if}
+						{#if item.unread}
+							<span class="unread-dot"></span>
 						{/if}
 					</div>
 				</button>
@@ -446,6 +483,11 @@
 	.conv-preview {
 		font-size: 0.75rem; color: var(--text-secondary);
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;
+	}
+	.conv-preview.unread-preview { color: var(--text-primary); font-weight: 600; }
+	.unread-dot {
+		width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+		flex-shrink: 0; margin-left: auto;
 	}
 
 	.empty-contacts {
