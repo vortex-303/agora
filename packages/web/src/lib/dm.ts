@@ -243,9 +243,15 @@ export class DMManager {
       prev: state.lastId,
     });
 
-    const hasPeers = this.feedManager.swarmManager.getConnectedCount() > 0;
-    const status: DMStatus = hasPeers ? 'sent' : 'queued';
-    if (hasPeers) this.sentIds.add(obj.id);
+    // Try direct send to recipient, also gossip as fallback
+    const isConnected = this.feedManager.swarmManager.isPubkeyConnected(recipientPublicKey);
+    const directSent = isConnected && this.feedManager.swarmManager.sendToPubkey(
+      recipientPublicKey,
+      JSON.stringify({ type: 'gossip', object: obj })
+    );
+    console.log(`[DM] Send to ${recipientPublicKey.slice(0, 8)}... direct=${directSent} connected=${isConnected} connectedPubkeys=${this.feedManager.swarmManager.getConnectedPubkeys().map(k => k.slice(0, 8)).join(',')}`);
+    const status: DMStatus = directSent ? 'sent' : 'queued';
+    if (directSent) this.sentIds.add(obj.id);
 
     const dm: DecryptedDM = {
       id: obj.id,
@@ -265,6 +271,7 @@ export class DMManager {
     }
 
     this.storeOutgoingPlaintext(obj.id, text);
+    // Store in cache + gossip as fallback (direct send already happened above)
     await this.feedManager.publish(obj);
   }
 

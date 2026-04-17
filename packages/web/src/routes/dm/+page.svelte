@@ -142,9 +142,13 @@
 
 	function contactStatus(key: string): 'ready' | 'connecting' | 'offline' {
 		const pm = appState.profileManager;
-		if (!pm) return 'offline';
+		const fm = appState.feedManager;
+		if (!pm || !fm) return 'offline';
 		const hasKey = !!pm.getX25519Key(key);
-		if (hasKey) return 'ready';
+		const isConnected = fm.swarmManager.isPubkeyConnected(key);
+		if (hasKey && isConnected) return 'ready';
+		if (hasKey) return 'ready'; // have key from cache, can encrypt even if offline
+		if (isConnected) return 'connecting'; // connected but waiting for key
 		const profile = pm.getProfile(key);
 		if (profile?.lastSeen && Date.now() - profile.lastSeen < 300_000) return 'connecting';
 		return 'offline';

@@ -43,8 +43,6 @@ interface PendingOffer {
   infohashBinary: string;
 }
 
-type PeerHandler = (peerId: string, channel: RTCDataChannel) => void;
-
 /**
  * Shared tracker connection — all swarms multiplex over one WebSocket.
  */
@@ -61,12 +59,8 @@ class TrackerConnection {
 
   connect(): void {
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) return;
-    try {
-      this.ws = new WebSocket(TRACKER_URL);
-    } catch {
-      this.scheduleReconnect();
-      return;
-    }
+    try { this.ws = new WebSocket(TRACKER_URL); }
+    catch { this.scheduleReconnect(); return; }
 
     this.ws.onopen = () => {
       this.reconnectDelay = 1000;
@@ -74,72 +68,60 @@ class TrackerConnection {
       console.log('[Tracker] Connected');
       for (const h of this.statusHandlers) h(true);
     };
-
     this.ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        for (const h of this.messageHandlers) h(msg);
-      } catch {}
+      try { const msg = JSON.parse(event.data); for (const h of this.messageHandlers) h(msg); } catch {}
     };
-
-    this.ws.onclose = () => {
-      this.connected = false;
-      this.scheduleReconnect();
-    };
-
+    this.ws.onclose = () => { this.connected = false; this.scheduleReconnect(); };
     this.ws.onerror = () => { this.ws?.close(); };
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null;
-      this.connect();
-    }, this.reconnectDelay);
+    this.reconnectTimer = setTimeout(() => { this.reconnectTimer = null; this.connect(); }, this.reconnectDelay);
     this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 30_000);
   }
 
   send(msg: object): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
-    }
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
   isConnected(): boolean { return this.connected; }
+  destroy(): void { if (this.reconnectTimer) clearTimeout(this.reconnectTimer); this.ws?.close(); }
+}
 
-  destroy(): void {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.ws?.close();
-  }
+// A connected peer with identified pubkey
+interface ConnectedPeer {
+  channel: RTCDataChannel;
+  pc: RTCPeerConnection;
+  pubkey: string | null; // null until handshake completes
+  trackerId: string;     // tracker's binary peer ID
 }
 
 export class SwarmManager {
   private tracker: TrackerConnection;
   private peerId: string;
-  private swarmInfohashes = new Map<string, string>(); // topic → infohashBinary
-  private pendingOffers = new Map<string, PendingOffer>(); // offerId → PendingOffer
-  private activePeers = new Map<string, { pc: RTCPeerConnection; channel: RTCDataChannel }>();
+  private myPubkey: string;
+  private swarmInfohashes = new Map<string, string>();
+  private pendingOffers = new Map<string, PendingOffer>();
+  private peers = new Map<string, ConnectedPeer>(); // trackerId → ConnectedPeer
+  private pubkeyToPeer = new Map<string, string>();  // pubkey → trackerId
   private dataHandlers: Array<(peerId: string, data: string) => void> = [];
   private peerChangeHandlers: Array<() => void> = [];
   private statusHandlers: Array<(connected: boolean) => void> = [];
-  private connectedPeers = new Map<string, RTCDataChannel>();
   private announceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(publicKey: string) {
     this.peerId = randomBinaryId();
+    this.myPubkey = publicKey;
     this.tracker = new TrackerConnection();
 
     this.tracker.onMessage((msg) => this.handleTrackerMessage(msg));
     this.tracker.onStatus((connected) => {
       for (const h of this.statusHandlers) h(connected);
       if (connected) {
-        // Re-announce all swarms on reconnect
-        for (const [topic, ihBin] of this.swarmInfohashes) {
-          this.announce(ihBin);
-        }
+        for (const [, ihBin] of this.swarmInfohashes) this.announce(ihBin);
       }
     });
-
     this.tracker.connect();
   }
 
@@ -149,21 +131,10 @@ export class SwarmManager {
 
   joinSwarm(topic: string): void {
     if (this.swarmInfohashes.has(topic)) return;
-    const infohash = topicToInfohash(topic);
-    const infohashBinary = hexToBinary(infohash);
+    const infohashBinary = hexToBinary(topicToInfohash(topic));
     this.swarmInfohashes.set(topic, infohashBinary);
-    console.log(`[SwarmManager] Joining: ${topic.slice(0, 40)} (${this.swarmInfohashes.size} total)`);
-
-    if (this.tracker.isConnected()) {
-      // Announce the new swarm immediately
-      this.announce(infohashBinary);
-      // Also re-announce all existing swarms (peers in overlapping swarms)
-      for (const [, ihBin] of this.swarmInfohashes) {
-        if (ihBin !== infohashBinary && !this.announceTimers.has(ihBin + ':boost')) {
-          setTimeout(() => this.announce(ihBin), 2000);
-        }
-      }
-    }
+    console.log(`[Swarm] Join: ${topic.slice(0, 40)} (${this.swarmInfohashes.size} total)`);
+    if (this.tracker.isConnected()) this.announce(infohashBinary);
   }
 
   leaveSwarm(topic: string): void {
@@ -172,37 +143,84 @@ export class SwarmManager {
     this.swarmInfohashes.delete(topic);
     const timer = this.announceTimers.get(ihBin);
     if (timer) { clearTimeout(timer); this.announceTimers.delete(ihBin); }
-    console.log(`[SwarmManager] Leaving: ${topic.slice(0, 40)}`);
   }
 
-  private async announce(infohashBinary: string): Promise<void> {
-    if (!this.tracker.isConnected()) {
-      console.log('[SwarmManager] Skipping announce — tracker not connected');
-      return;
+  // Send directly to a specific pubkey (for DMs)
+  sendToPubkey(pubkey: string, data: string): boolean {
+    const trackerId = this.pubkeyToPeer.get(pubkey);
+    if (!trackerId) return false;
+    const peer = this.peers.get(trackerId);
+    if (peer?.channel.readyState === 'open') {
+      peer.channel.send(data);
+      return true;
     }
+    return false;
+  }
 
-    // Create offers in parallel
+  // Check if a pubkey is directly connected
+  isPubkeyConnected(pubkey: string): boolean {
+    const trackerId = this.pubkeyToPeer.get(pubkey);
+    if (!trackerId) return false;
+    const peer = this.peers.get(trackerId);
+    return peer?.channel.readyState === 'open' || false;
+  }
+
+  // Broadcast to all peers (for gossip protocol)
+  broadcast(data: string): number {
+    let sent = 0;
+    for (const [, peer] of this.peers) {
+      if (peer.channel.readyState === 'open') {
+        peer.channel.send(data);
+        sent++;
+      }
+    }
+    return sent;
+  }
+
+  sendToPeer(trackerId: string, data: string): boolean {
+    const peer = this.peers.get(trackerId);
+    if (peer?.channel.readyState === 'open') {
+      peer.channel.send(data);
+      return true;
+    }
+    return false;
+  }
+
+  getConnectedCount(): number {
+    let count = 0;
+    for (const peer of this.peers.values()) {
+      if (peer.channel.readyState === 'open') count++;
+    }
+    return count;
+  }
+
+  getConnectedPubkeys(): string[] {
+    return [...this.pubkeyToPeer.keys()];
+  }
+
+  getSwarmTopics(): string[] {
+    return [...this.swarmInfohashes.keys()];
+  }
+
+  // --- Tracker protocol ---
+
+  private async announce(infohashBinary: string): Promise<void> {
+    if (!this.tracker.isConnected()) return;
+
     const offerPromises = Array.from({ length: OFFERS_PER_ANNOUNCE }, () => this.createOffer(infohashBinary));
     const offers = (await Promise.all(offerPromises)).filter(Boolean) as Array<{ offer: RTCSessionDescriptionInit; offer_id: string }>;
 
-    if (offers.length === 0) {
-      console.warn('[SwarmManager] No offers created — announce skipped');
-      return;
-    }
+    if (offers.length === 0) return;
 
     this.tracker.send({
       action: 'announce',
       info_hash: infohashBinary,
       peer_id: this.peerId,
       numwant: OFFERS_PER_ANNOUNCE,
-      uploaded: 0,
-      downloaded: 0,
-      left: 1,
+      uploaded: 0, downloaded: 0, left: 1,
       offers,
     });
-    console.log(`[SwarmManager] Announced (${offers.length} offers, ${this.swarmInfohashes.size} swarms active)`);
 
-    // Schedule re-announce
     const existing = this.announceTimers.get(infohashBinary);
     if (existing) clearTimeout(existing);
     this.announceTimers.set(infohashBinary, setTimeout(() => this.announce(infohashBinary), ANNOUNCE_INTERVAL));
@@ -213,190 +231,126 @@ export class SwarmManager {
       const pc = new RTCPeerConnection(RTC_CONFIG);
       const channel = pc.createDataChannel('riot', { ordered: true });
       const offerId = randomBinaryId();
-
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       await waitForIce(pc);
-
       this.pendingOffers.set(offerId, { pc, channel, offerId, infohashBinary });
       return { offer: pc.localDescription!, offer_id: offerId };
     } catch (e) {
-      console.warn('[SwarmManager] createOffer failed:', e);
+      console.warn('[Swarm] createOffer failed:', e);
       return null;
     }
   }
 
   private async handleTrackerMessage(msg: any): Promise<void> {
     if (msg.action !== 'announce') return;
-
     if (msg.offer && msg.offer_id && msg.peer_id) {
-      console.log('[SwarmManager] Got offer from peer');
-      const ihBin = msg.info_hash;
-      await this.handleOffer(msg.peer_id, msg.offer, msg.offer_id, ihBin);
+      if (this.peers.has(msg.peer_id)) return; // already connected
+      await this.handleOffer(msg.peer_id, msg.offer, msg.offer_id, msg.info_hash);
     } else if (msg.answer && msg.offer_id) {
-      console.log('[SwarmManager] Got answer for our offer');
       this.handleAnswer(msg.peer_id, msg.answer, msg.offer_id);
-    } else if (msg.info_hash) {
-      console.log(`[SwarmManager] Tracker ack: ${msg.incomplete || 0} peers in swarm`);
     }
   }
 
   private async handleOffer(remotePeerId: string, offer: RTCSessionDescriptionInit, offerId: string, infohashBinary: string): Promise<void> {
-    if (this.connectedPeers.has(remotePeerId)) {
-      console.log('[SwarmManager] Already connected to this peer, skipping offer');
-      return;
-    }
-
     const pc = new RTCPeerConnection(RTC_CONFIG);
-
-    pc.ondatachannel = (event) => {
-      this.setupChannel(remotePeerId, pc, event.channel);
-    };
+    pc.ondatachannel = (event) => { this.setupPeer(remotePeerId, pc, event.channel); };
 
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await waitForIce(pc);
-
       this.tracker.send({
         action: 'announce',
-        info_hash: infohashBinary || this.peerId, // fallback
+        info_hash: infohashBinary,
         peer_id: this.peerId,
         to_peer_id: remotePeerId,
         answer: pc.localDescription!,
         offer_id: offerId,
       });
-    } catch {
-      pc.close();
-    }
+    } catch { pc.close(); }
   }
 
   private handleAnswer(remotePeerId: string, answer: RTCSessionDescriptionInit, offerId: string): void {
     const pending = this.pendingOffers.get(offerId);
     if (!pending) return;
     this.pendingOffers.delete(offerId);
-
     pending.pc.setRemoteDescription(new RTCSessionDescription(answer)).catch(() => {});
-    this.setupChannel(remotePeerId, pending.pc, pending.channel);
+    this.setupPeer(remotePeerId, pending.pc, pending.channel);
   }
 
-  private setupChannel(remotePeerId: string, pc: RTCPeerConnection, channel: RTCDataChannel): void {
+  private setupPeer(trackerId: string, pc: RTCPeerConnection, channel: RTCDataChannel): void {
     channel.onopen = () => {
-      if (this.connectedPeers.has(remotePeerId)) {
-        // Already connected to this peer via another swarm — ignore silently
-        // Don't close the PC as it may share transport with the active connection
+      if (this.peers.has(trackerId)) {
         channel.close();
         return;
       }
-      this.connectedPeers.set(remotePeerId, channel);
-      console.log(`[SwarmManager] PEER CONNECTED (${this.connectedPeers.size} total)`);
+
+      const peer: ConnectedPeer = { channel, pc, pubkey: null, trackerId };
+      this.peers.set(trackerId, peer);
+
+      // Send handshake with our pubkey
+      channel.send(JSON.stringify({ type: '_hello', pubkey: this.myPubkey }));
 
       channel.onmessage = (event) => {
-        for (const h of this.dataHandlers) h(remotePeerId, event.data);
+        const data = event.data;
+        try {
+          const msg = JSON.parse(data);
+          // Handle pubkey handshake
+          if (msg.type === '_hello' && msg.pubkey && !peer.pubkey) {
+            peer.pubkey = msg.pubkey;
+            this.pubkeyToPeer.set(msg.pubkey, trackerId);
+            console.log(`[Swarm] Peer identified: ${msg.pubkey.slice(0, 12)}...`);
+            for (const h of this.peerChangeHandlers) h();
+            return;
+          }
+        } catch {}
+        // Forward all other messages to data handlers
+        for (const h of this.dataHandlers) h(trackerId, data);
       };
 
       channel.onclose = () => {
-        console.log(`[SwarmManager] Peer disconnected (${this.connectedPeers.size - 1} remaining)`);
-        this.connectedPeers.delete(remotePeerId);
+        if (peer.pubkey) this.pubkeyToPeer.delete(peer.pubkey);
+        this.peers.delete(trackerId);
+        console.log(`[Swarm] Peer disconnected (${this.peers.size} remaining)`);
         for (const h of this.peerChangeHandlers) h();
       };
 
+      channel.onerror = () => {};
+
+      console.log(`[Swarm] PEER CONNECTED (${this.peers.size} total)`);
       for (const h of this.peerChangeHandlers) h();
     };
 
-    channel.onerror = (e) => {
-      console.warn('[SwarmManager] DataChannel error:', e);
-    };
-
     pc.onconnectionstatechange = () => {
-      const state = pc.connectionState;
-      if (state === 'failed' || state === 'closed') {
-        console.log(`[SwarmManager] WebRTC ${state}`);
-        this.connectedPeers.delete(remotePeerId);
-      } else if (state === 'connecting') {
-        console.log('[SwarmManager] WebRTC connecting...');
-      } else if (state === 'connected') {
-        console.log('[SwarmManager] WebRTC connected, waiting for DataChannel...');
+      if (pc.connectionState === 'failed') {
+        console.warn('[Swarm] WebRTC failed');
+        this.peers.delete(trackerId);
       }
     };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'failed') {
-        console.warn('[SwarmManager] ICE failed — NAT traversal unsuccessful');
-      }
-    };
-  }
-
-  broadcast(data: string): number {
-    let sent = 0;
-    for (const [, channel] of this.connectedPeers) {
-      if (channel.readyState === 'open') {
-        channel.send(data);
-        sent++;
-      }
-    }
-    return sent;
-  }
-
-  sendToPeer(peerId: string, data: string): boolean {
-    const channel = this.connectedPeers.get(peerId);
-    if (channel?.readyState === 'open') {
-      channel.send(data);
-      return true;
-    }
-    return false;
-  }
-
-  getConnectedCount(): number {
-    let count = 0;
-    for (const ch of this.connectedPeers.values()) {
-      if (ch.readyState === 'open') count++;
-    }
-    return count;
-  }
-
-  getSwarmTopics(): string[] {
-    return [...this.swarmInfohashes.keys()];
   }
 
   destroy(): void {
     for (const timer of this.announceTimers.values()) clearTimeout(timer);
     this.tracker.destroy();
     for (const pending of this.pendingOffers.values()) pending.pc.close();
-    for (const peer of this.activePeers.values()) peer.pc.close();
+    for (const peer of this.peers.values()) peer.pc.close();
     this.pendingOffers.clear();
-    this.activePeers.clear();
-    this.connectedPeers.clear();
+    this.peers.clear();
+    this.pubkeyToPeer.clear();
   }
 }
 
 function waitForIce(pc: RTCPeerConnection): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') { resolve(); return; }
-    let candidateCount = 0;
-    const timeout = setTimeout(() => {
-      console.log(`[ICE] Timed out with ${candidateCount} candidates`);
-      resolve();
-    }, ICE_TIMEOUT);
-
+    const timeout = setTimeout(resolve, ICE_TIMEOUT);
     pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        candidateCount++;
-      } else {
-        // null candidate = gathering complete
-        console.log(`[ICE] Complete: ${candidateCount} candidates`);
-        clearTimeout(timeout);
-        resolve();
-      }
+      if (!e.candidate) { clearTimeout(timeout); resolve(); }
     };
-
     pc.onicegatheringstatechange = () => {
-      if (pc.iceGatheringState === 'complete') {
-        console.log(`[ICE] State complete: ${candidateCount} candidates`);
-        clearTimeout(timeout);
-        resolve();
-      }
+      if (pc.iceGatheringState === 'complete') { clearTimeout(timeout); resolve(); }
     };
   });
 }
