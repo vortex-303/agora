@@ -27,7 +27,6 @@ export class GossipManager {
     swarm.onData((peerId, data) => {
       try {
         const msg = JSON.parse(data);
-        if (msg.type) console.log(`[Gossip] ← ${msg.type}${msg.object ? ' (' + msg.object.body?.type + ')' : ''}`);
         switch (msg.type) {
           case 'gossip':
             if (msg.object) this.handleGossip(msg.object);
@@ -97,10 +96,10 @@ export class GossipManager {
     console.log(`[Gossip] Sent watermarks (${authorCount} authors) to ${sent} peers`);
   }
 
+  private watermarkReplied = new Set<string>();
+
   private async handleWatermark(peerId: string, peerAuthors: Watermarks): Promise<void> {
     const myWatermarks = await this.buildWatermarks();
-    const peerAuthorCount = Object.keys(peerAuthors).length;
-    console.log(`[Gossip] Received watermarks from peer (${peerAuthorCount} authors)`);
 
     let requested = 0;
     for (const [author, peerSeq] of Object.entries(peerAuthors)) {
@@ -111,12 +110,15 @@ export class GossipManager {
         requested++;
       }
     }
-    if (requested > 0) console.log(`[Gossip] Requested ${requested} authors from peer`);
 
-    const myAuthorCount = Object.keys(myWatermarks).length;
-    if (myAuthorCount > 0) {
-      this.swarm.sendToPeer(peerId,
-        JSON.stringify({ type: 'watermark', authors: myWatermarks }));
+    // Only reply with our watermarks ONCE per peer (prevent infinite loop)
+    if (!this.watermarkReplied.has(peerId)) {
+      this.watermarkReplied.add(peerId);
+      const myAuthorCount = Object.keys(myWatermarks).length;
+      if (myAuthorCount > 0) {
+        this.swarm.sendToPeer(peerId,
+          JSON.stringify({ type: 'watermark', authors: myWatermarks }));
+      }
     }
   }
 
@@ -142,7 +144,6 @@ export class GossipManager {
         this.swarm.sendToPeer(peerId, msg);
         this._objectsServed += matching.length;
         this._bytesServed += msg.length;
-        console.log(`[Gossip] Served ${matching.length} objects to peer (types: ${matching.map(o => o.body.type).join(',')})`);
       }
     } catch { /* cache not ready */ }
   }
