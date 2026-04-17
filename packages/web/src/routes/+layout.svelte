@@ -16,7 +16,6 @@
 	import '$lib/theme.css';
 
 	let { children } = $props();
-	let showUserMenu = $state(false);
 	let copied = $state(false);
 
 	onMount(async () => {
@@ -75,10 +74,6 @@
 		setTimeout(() => { copied = false; }, 2000);
 	}
 
-	function handleClickOutside() {
-		showUserMenu = false;
-	}
-
 	let unreadDMs = $state(0);
 	$effect(() => {
 		const dm = appState.dmManager;
@@ -95,8 +90,14 @@
 		'badge-disconnected'
 	);
 
-	let isLobbyOrSetup = $derived(
-		$page.url.pathname === '/' || $page.url.pathname.startsWith('/setup') || $page.url.pathname.startsWith('/p/')
+	let isFullscreen = $derived(
+		$page.url.pathname.startsWith('/setup') || $page.url.pathname.startsWith('/p/') ||
+		$page.url.pathname.startsWith('/join/')
+	);
+
+	let displayName = $derived(
+		appState.profileManager?.getProfile(identityState.identity?.publicKeyBase64 || '')?.name ||
+		identityState.identity?.publicKeyBase64.slice(0, 8) + '...'
 	);
 </script>
 
@@ -114,119 +115,190 @@
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </svelte:head>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="grid-bg"></div>
 <div class="glow glow-1"></div>
 <div class="glow glow-2"></div>
 <GridCanvas />
 
-<div class="app" onclick={handleClickOutside}>
-	<nav>
-		<a href="/" class="logo">riot<span class="logo-dot">.</span></a>
-		{#if identityState.identity}
-			<div class="nav-right">
-				<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>
-					Lobby
+{#if isFullscreen || !identityState.identity}
+	<!-- Fullscreen: setup, public profiles, join links -->
+	<div class="fullscreen">
+		{@render children()}
+	</div>
+{:else}
+	<!-- App shell: sidebar + main -->
+	<div class="shell">
+		<aside class="sidebar">
+			<div class="sidebar-top">
+				<a href="/" class="logo">riot<span class="logo-dot">.</span></a>
+				<span class="badge {statusClass}">
+					<span class="dot"></span>
+					<span class="status-label">{connectionState.status === 'connected' ? 'online' : 'connecting'}</span>
+				</span>
+			</div>
+
+			<nav class="sidebar-nav">
+				<a href="/" class="nav-item" class:active={$page.url.pathname === '/'}>
+					<span class="nav-icon">&#x1F3E0;</span>
+					<span>Lobby</span>
 				</a>
-				<a href="/dm" class="nav-link" class:active={$page.url.pathname.startsWith('/dm')}>
-					Messages
+				<a href="/dm" class="nav-item" class:active={$page.url.pathname.startsWith('/dm')}>
+					<span class="nav-icon">&#x1F4AC;</span>
+					<span>Messages</span>
 					{#if unreadDMs > 0}
 						<span class="nav-badge">{unreadDMs}</span>
 					{/if}
 				</a>
-				<a href="/network" class="nav-link" class:active={$page.url.pathname === '/network'}>
-					Network
+				<a href="/network" class="nav-item" class:active={$page.url.pathname === '/network'}>
+					<span class="nav-icon">&#x1F310;</span>
+					<span>Network</span>
 				</a>
-				<span class="badge {statusClass}">
-					<span class="dot"></span>
-					<span class="status-text">{connectionState.status === 'connected' ? 'p2p' : connectionState.status}</span>
-				</span>
-				<button class="user-btn" onclick={(e) => { e.stopPropagation(); showUserMenu = !showUserMenu; }}>
-					<span class="mono">{identityState.identity.publicKeyBase64.slice(0, 8)}</span>
-					<span class="caret">▾</span>
-				</button>
-				{#if showUserMenu}
-					<div class="user-menu card" onclick={(e) => e.stopPropagation()}>
-						<a href="/{appState.profileManager?.getProfile(identityState.identity.publicKeyBase64)?.name ? appState.profileManager.getProfile(identityState.identity.publicKeyBase64)!.name!.toLowerCase().replace(/\s+/g, '') : `p/${encodeURIComponent(identityState.identity.publicKeyBase64)}`}" class="menu-link" onclick={() => { showUserMenu = false; }}>My Riot Link</a>
-						<a href="/settings" class="menu-link" onclick={() => { showUserMenu = false; }}>Settings</a>
-						<div class="menu-divider"></div>
-						<div class="menu-label">Public address</div>
-						<code class="menu-address mono">{identityState.identity.publicKeyBase64}</code>
-						<button class="btn" onclick={copyAddress} style="width:100%">
-							{copied ? 'Copied!' : 'Copy Address'}
+				<a href="/settings" class="nav-item" class:active={$page.url.pathname === '/settings'}>
+					<span class="nav-icon">&#x2699;</span>
+					<span>Settings</span>
+				</a>
+			</nav>
+
+			<div class="sidebar-bottom">
+				<div class="user-card">
+					<div class="user-avatar">{identityState.identity.publicKeyBase64.slice(0, 2)}</div>
+					<div class="user-info">
+						<span class="user-name">{displayName}</span>
+						<button class="copy-key" onclick={copyAddress}>
+							<span class="mono">{identityState.identity.publicKeyBase64.slice(0, 12)}...</span>
+							{#if copied}<span class="copied-label">copied!</span>{/if}
 						</button>
 					</div>
-				{/if}
+				</div>
 			</div>
-		{/if}
-	</nav>
-	<main>
-		{@render children()}
-	</main>
-</div>
+		</aside>
+
+		<main class="main-panel" class:main-fluid={$page.url.pathname.startsWith('/dm')}>
+			{@render children()}
+		</main>
+	</div>
+{/if}
 
 <style>
-	.app { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; padding: 0 16px; }
-	nav {
-		display: flex; justify-content: space-between; align-items: center;
-		padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.04); margin-bottom: 20px;
+	.fullscreen { position: relative; z-index: 1; }
+
+	/* Shell */
+	.shell {
+		position: relative; z-index: 1;
+		display: flex; height: 100vh; overflow: hidden;
 	}
-	.logo { font-size: 1.3em; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+
+	/* Sidebar */
+	.sidebar {
+		width: 240px; min-width: 240px; flex-shrink: 0;
+		display: flex; flex-direction: column;
+		background: var(--bg-root);
+		border-right: 1px solid rgba(255,255,255,0.04);
+		padding: 0;
+	}
+
+	.sidebar-top {
+		display: flex; justify-content: space-between; align-items: center;
+		padding: 20px 20px 16px;
+	}
+	.logo { font-size: 1.3em; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; text-decoration: none; }
 	.logo:hover { color: var(--text-primary); }
 	.logo-dot { color: var(--accent); }
-	.nav-right { display: flex; align-items: center; gap: 10px; position: relative; }
-	.nav-link {
-		display: flex; align-items: center; gap: 6px;
-		padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 500;
-		color: var(--text-secondary); text-decoration: none; transition: all 0.2s;
-	}
-	.nav-link:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
-	.nav-link.active { color: var(--accent); background: rgba(249,115,22,0.08); }
-	.nav-badge {
-		background: var(--accent); color: #000; font-size: 0.6rem; font-weight: 700;
-		min-width: 16px; height: 16px; border-radius: 8px;
-		display: flex; align-items: center; justify-content: center; padding: 0 4px;
-	}
-	.dot {
-		display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-		background: currentColor; animation: pulse-dot 2s infinite;
-	}
-	.user-btn {
-		display: flex; align-items: center; gap: 4px;
-		background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.04);
-		border-radius: 6px; padding: 5px 10px; color: var(--text-secondary);
-		font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
-	}
-	.user-btn:hover { border-color: var(--accent-border); color: var(--text-primary); }
-	.caret { font-size: 0.6rem; }
-	.user-menu {
-		position: absolute; top: 100%; right: 0; margin-top: 8px;
-		width: 300px; padding: 8px; z-index: 100;
-		background: var(--bg-raised); border: 1px solid rgba(255,255,255,0.08);
-	}
-	.menu-link {
-		display: block; padding: 10px 12px; border-radius: 6px;
-		color: var(--text-primary); font-size: 0.85rem; font-weight: 500;
-		text-decoration: none; transition: all 0.15s;
-	}
-	.menu-link:hover { background: rgba(255,255,255,0.04); color: var(--accent); }
-	.menu-divider { height: 1px; background: rgba(255,255,255,0.04); margin: 6px 0; }
-	.menu-label { color: var(--text-tertiary); font-size: 0.7rem; padding: 4px 12px; }
-	.menu-address {
-		display: block; font-size: 0.6rem; color: var(--accent);
-		word-break: break-all; margin: 4px 12px 8px; padding: 6px 8px;
-		background: var(--bg-input); border-radius: 4px;
-	}
-	main { min-height: 70vh; }
 
-	@media (max-width: 640px) {
-		.app { padding: 0 10px; }
-		nav { padding: 10px 0; margin-bottom: 12px; }
-		.status-text { display: none; }
-		.user-btn .mono { display: none; }
-		.user-btn .caret { display: none; }
-		.user-btn::before { content: '⚙'; font-size: 0.9rem; }
-		.user-menu { width: calc(100vw - 20px); right: -10px; }
+	.badge { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; }
+	.badge-connected { color: #4ade80; background: rgba(74,222,128,0.08); }
+	.badge-connecting { color: #facc15; background: rgba(250,204,21,0.08); }
+	.badge-disconnected { color: var(--text-tertiary); background: rgba(255,255,255,0.03); }
+	.dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse-dot 2s infinite; }
+	.status-label { font-weight: 500; }
+
+	.sidebar-nav {
+		flex: 1; display: flex; flex-direction: column; gap: 2px;
+		padding: 8px 12px;
+	}
+	.nav-item {
+		display: flex; align-items: center; gap: 10px;
+		padding: 10px 12px; border-radius: 8px;
+		font-size: 0.85rem; font-weight: 500;
+		color: var(--text-secondary); text-decoration: none;
+		transition: all 0.15s;
+	}
+	.nav-item:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+	.nav-item.active { color: var(--accent); background: rgba(249,115,22,0.08); }
+	.nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+	.nav-badge {
+		margin-left: auto;
+		background: var(--accent); color: #000; font-size: 0.6rem; font-weight: 700;
+		min-width: 18px; height: 18px; border-radius: 9px;
+		display: flex; align-items: center; justify-content: center; padding: 0 5px;
+	}
+
+	.sidebar-bottom {
+		padding: 12px;
+		border-top: 1px solid rgba(255,255,255,0.04);
+	}
+	.user-card {
+		display: flex; align-items: center; gap: 10px;
+		padding: 8px; border-radius: 8px;
+	}
+	.user-avatar {
+		width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+		background: var(--bg-raised); display: flex; align-items: center; justify-content: center;
+		font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent);
+		border: 1px solid var(--accent-border);
+	}
+	.user-info { min-width: 0; }
+	.user-name { display: block; font-size: 0.82rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.copy-key {
+		display: block; background: none; border: none; padding: 0; cursor: pointer;
+		font-size: 0.65rem; color: var(--text-tertiary); font-family: var(--font-mono);
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;
+		transition: color 0.15s;
+	}
+	.copy-key:hover { color: var(--accent); }
+	.copied-label { color: #4ade80; margin-left: 4px; font-family: var(--font-sans); }
+
+	/* Main panel */
+	.main-panel {
+		flex: 1; overflow-y: auto; overflow-x: hidden;
+		padding: 28px 32px;
+		min-width: 0;
+	}
+	.main-panel.main-fluid {
+		padding: 0;
+		overflow: hidden;
+	}
+
+	/* Mobile */
+	@media (max-width: 768px) {
+		.shell { flex-direction: column; }
+
+		.sidebar {
+			width: 100%; min-width: 100%; flex-shrink: 0;
+			flex-direction: row; align-items: center;
+			border-right: none; border-bottom: 1px solid rgba(255,255,255,0.04);
+			padding: 0; height: auto;
+			position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+			background: var(--bg-root);
+		}
+		.sidebar-top { display: none; }
+		.sidebar-bottom { display: none; }
+		.sidebar-nav {
+			flex-direction: row; justify-content: space-around;
+			padding: 6px 0; gap: 0; width: 100%;
+		}
+		.nav-item {
+			flex-direction: column; gap: 2px; padding: 6px 12px;
+			font-size: 0.65rem; border-radius: 0;
+		}
+		.nav-icon { font-size: 1.1rem; }
+
+		.main-panel {
+			padding: 16px 12px; padding-bottom: 70px;
+			height: calc(100vh - 56px);
+		}
+		.main-panel.main-fluid {
+			padding: 0; padding-bottom: 56px;
+		}
 	}
 </style>

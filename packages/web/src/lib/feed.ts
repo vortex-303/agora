@@ -50,16 +50,15 @@ export class FeedManager {
       await this.ingestObject(obj);
     });
 
-    this.swarmManager.onStatus((connected) => {
-      this.emitStatus(connected ? 'connected' : 'connecting');
-      if (connected) {
+    this.swarmManager.onStatus((trackerConnected) => {
+      if (trackerConnected) {
+        this.emitStatus('connected');
         this.outbox.flush((obj) => this.gossip.gossip(obj));
       }
     });
 
     this.swarmManager.onPeerChange(() => {
       const count = this.swarmManager.getConnectedCount();
-      this.emitStatus(count > 0 ? 'connected' : 'connecting');
       if (count > 0) {
         this.outbox.flush((obj) => this.gossip.gossip(obj));
       }

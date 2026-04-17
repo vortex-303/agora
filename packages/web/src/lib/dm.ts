@@ -77,6 +77,11 @@ export class DMManager {
 
     // Load cached DMs — live DMs arrive via P2P gossip
     await this.loadCachedDMs();
+
+    // Pre-connect DM swarms for all existing conversations
+    for (const [partner] of this.conversations) {
+      this.feedManager.joinDMSwarm(partner);
+    }
   }
 
   openConversation(partner: string): void {

@@ -364,8 +364,7 @@
 
 <style>
 	.dm-layout {
-		display: flex; height: calc(100vh - 80px);
-		border: 1px solid rgba(255,255,255,0.04); border-radius: 12px;
+		display: flex; height: 100%;
 		overflow: hidden; background: var(--bg-surface);
 	}
 
@@ -389,7 +388,7 @@
 
 	/* Sidebar */
 	.sidebar {
-		width: 280px; min-width: 280px;
+		width: 320px; min-width: 320px;
 		flex-shrink: 0;
 		display: flex; flex-direction: column;
 		border-right: 1px solid rgba(255,255,255,0.04);
@@ -525,8 +524,8 @@
 	.back-btn:hover { color: var(--accent); }
 
 	/* Mobile: show sidebar OR chat */
-	@media (max-width: 640px) {
-		.dm-layout { height: calc(100vh - 70px); border-radius: 0; border: none; }
+	@media (max-width: 768px) {
+		.dm-layout { height: calc(100vh - 56px); }
 		.sidebar { width: 100%; min-width: 100%; }
 		.chat-area { width: 100%; min-width: 100%; }
 		.back-btn { display: block; }

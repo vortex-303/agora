@@ -198,7 +198,7 @@
 </div>
 
 <style>
-	.network-page { max-width: 600px; margin: 0 auto; }
+	.network-page { max-width: 800px; }
 	.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 	h2 { color: var(--text-primary); margin: 0; font-size: 1.3rem; }
 	.refresh-btn {

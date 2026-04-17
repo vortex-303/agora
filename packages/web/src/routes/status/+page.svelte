@@ -233,7 +233,7 @@
 </div>
 
 <style>
-	.status-page { max-width: 700px; margin: 0 auto; }
+	.status-page { max-width: 900px; }
 	.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 	h2 { color: var(--text-primary); margin: 0; font-size: 1.3rem; }
 	.refresh-time { font-size: 0.7rem; color: var(--text-tertiary); }
