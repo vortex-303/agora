@@ -1,0 +1,5 @@
+test
+Dockerfile
+.dockerignore
+.DS_Store
+*.log

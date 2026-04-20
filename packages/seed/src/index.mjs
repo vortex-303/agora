@@ -1,19 +1,26 @@
 #!/usr/bin/env node
 
 import { existsSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { SwarmNode } from './swarm-node.mjs';
 import { ObjectStore } from './store.mjs';
 import { startDashboard } from './dashboard.mjs';
 import { DHTPublisher } from './dht-publisher.mjs';
+import { startTUI } from './tui.mjs';
 
 const args = process.argv.slice(2);
 let topics = [];
-let dataDir = join(process.env.HOME || '.', '.riot-seed');
+const HOME = homedir() || '.';
+const LEGACY_DIR = join(HOME, '.riot-seed');
+const DEFAULT_DIR = join(HOME, '.agora-seed');
+// Preserve existing local data from pre-rename installs.
+let dataDir = existsSync(DEFAULT_DIR) || !existsSync(LEGACY_DIR) ? DEFAULT_DIR : LEGACY_DIR;
 let port = 9876;
 let budgetMB = 2048;
 let seedAll = false;
+let tuiMode = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--topics' && args[i + 1]) {
@@ -30,21 +37,24 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if (args[i] === '--seed-all') {
     seedAll = true;
+  } else if (args[i] === '--tui') {
+    tuiMode = true;
   } else if (args[i] === '--help' || args[i] === '-h') {
     console.log(`
-riot-seed — P2P network node for Riot
+agora-seed — P2P network node for Agora
 
 Usage:
-  riot-seed --topics riot:user:<pubkey>
-  riot-seed --topics riot:user:<pubkey> --seed-all
-  riot-seed --seed-all --budget 4096
+  agora-seed --topics riot:user:<pubkey>
+  agora-seed --topics riot:user:<pubkey> --seed-all
+  agora-seed --seed-all --budget 4096 --tui
 
 Options:
   --topics <list>   Comma-separated swarm topics to seed
   --seed-all        Seed all content discovered from peers (network node)
-  --data <dir>      Data directory (default: ~/.riot-seed)
+  --data <dir>      Data directory (default: ~/.agora-seed)
   --port <num>      Dashboard port (default: 9876)
   --budget <MB>     Storage budget in MB (default: 2048)
+  --tui             Live terminal dashboard (network, files served, new accounts)
   --help            Show this help
 
 Modes:
@@ -76,7 +86,7 @@ const node = new SwarmNode(store);
 if (seedAll) {
   const myHash = createHash('sha1').update(node.peerId).digest('hex');
   store.setNeighborhood(myHash);
-  console.log(`[riot-seed] Network node mode — neighborhood prefix: ${myHash.slice(0, 4)}`);
+  console.log(`[agora-seed] Network node mode — neighborhood prefix: ${myHash.slice(0, 4)}`);
 }
 
 // Join explicit topics
@@ -111,11 +121,11 @@ if (seedAll) {
 const totalTopics = node.getTopics().length;
 const dmCount = store.getDMPairs().length;
 
-console.log(`\n[riot-seed] Seeding ${totalTopics} swarm(s)`);
-console.log(`[riot-seed] Data dir: ${dataDir}`);
-console.log(`[riot-seed] Budget: ${budgetMB}MB`);
-console.log(`[riot-seed] Objects stored: ${store.count()}`);
-console.log(`[riot-seed] Authors hosted: ${store.getAuthorCount()}`);
+console.log(`\n[agora-seed] Seeding ${totalTopics} swarm(s)`);
+console.log(`[agora-seed] Data dir: ${dataDir}`);
+console.log(`[agora-seed] Budget: ${budgetMB}MB`);
+console.log(`[agora-seed] Objects stored: ${store.count()}`);
+console.log(`[agora-seed] Authors hosted: ${store.getAuthorCount()}`);
 
 // Start DHT publisher
 const dhtPublisher = new DHTPublisher(store);
@@ -124,29 +134,37 @@ await dhtPublisher.start();
 // Start dashboard
 startDashboard(port, store, node, startTime, dhtPublisher);
 
-console.log(`[riot-seed] Press Ctrl+C to stop\n`);
+console.log(`[agora-seed] Press Ctrl+C to stop\n`);
 
-// Periodically discover new swarms + log stats
+// Periodically discover new swarms
 setInterval(() => {
   discoverSwarms();
 }, 60_000);
 
-setInterval(() => {
-  const stats = node.getStats();
-  console.log(`[riot-seed] peers:${stats.peers} objects:${store.count()} served:${stats.served} received:${stats.received} swarms:${stats.swarms}`);
-}, 30_000);
+let tui = null;
+if (tuiMode) {
+  // Suppress chatty console output once the TUI owns the screen.
+  console.log = () => {};
+  console.warn = () => {};
+  tui = startTUI({
+    store, node, dhtPublisher, startTime, port, dataDir, budgetMB,
+    mode: seedAll ? 'network node' : 'personal',
+  });
+} else {
+  setInterval(() => {
+    const stats = node.getStats();
+    console.log(`[agora-seed] peers:${stats.peers} objects:${store.count()} served:${stats.served} received:${stats.received} swarms:${stats.swarms}`);
+  }, 30_000);
+}
 
-process.on('SIGINT', async () => {
-  console.log('\n[riot-seed] Shutting down...');
+async function shutdown() {
+  if (tui) tui.stop();
+  else console.log('\n[agora-seed] Shutting down...');
   node.destroy();
   await dhtPublisher.destroy();
   store.save();
   process.exit(0);
-});
+}
 
-process.on('SIGTERM', async () => {
-  node.destroy();
-  await dhtPublisher.destroy();
-  store.save();
-  process.exit(0);
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

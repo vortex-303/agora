@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, writeFileSync, appendFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 
-export class ObjectStore {
+export class ObjectStore extends EventEmitter {
   constructor(dataDir, opts = {}) {
+    super();
     this.dataDir = dataDir;
     this.filePath = join(dataDir, 'objects.jsonl');
     this.objects = new Map();
@@ -59,6 +61,9 @@ export class ObjectStore {
       this.evict();
     }
 
+    const author = obj.body.author;
+    const isNewAuthor = !this.authorSeq.has(author);
+
     this.objects.set(obj.id, obj);
     this.trackSeq(obj);
     try {
@@ -66,6 +71,9 @@ export class ObjectStore {
     } catch (e) {
       console.warn(`[store] Write error: ${e.message}`);
     }
+
+    if (isNewAuthor) this.emit('new-author', { author, firstObject: obj });
+    this.emit('new-object', obj);
     return true;
   }
 

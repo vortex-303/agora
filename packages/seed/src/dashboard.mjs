@@ -72,7 +72,7 @@ function getDashboardHTML() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>riot seed — dashboard</title>
+<title>agora seed — dashboard</title>
 <style>
   :root { --accent: #f97316; --bg: #07070a; --surface: #0e0e12; --raised: #141418; --text: #f0f0f0; --dim: #a0a0a8; --muted: #606068; --mono: 'SF Mono', 'JetBrains Mono', monospace; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -100,7 +100,7 @@ function getDashboardHTML() {
 </style>
 </head>
 <body>
-<h1>riot<span>.</span> seed</h1>
+<h1>agora<span>.</span> seed</h1>
 
 <div class="grid">
   <div class="card"><div class="stat-val" id="peers">-</div><div class="stat-label">peers</div></div>

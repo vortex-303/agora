@@ -1,12 +1,39 @@
 {
-  "name": "@riotp2p/seed",
+  "name": "@agorap2p/seed",
   "version": "0.1.0",
+  "description": "P2P network/seeder node for Agora — terminal dashboard for peers, files served, and new accounts.",
   "type": "module",
   "bin": {
-    "riot-seed": "./src/index.mjs"
+    "agora-seed": "./src/index.mjs"
   },
   "scripts": {
-    "start": "node src/index.mjs"
+    "start": "node src/index.mjs",
+    "test": "node test/tui.test.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "agora",
+    "p2p",
+    "webrtc",
+    "seeder",
+    "dht",
+    "decentralized"
+  ],
+  "homepage": "https://agorap2p.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vortex-303/agora.git",
+    "directory": "packages/seed"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@noble/curves": "^1.8.0",

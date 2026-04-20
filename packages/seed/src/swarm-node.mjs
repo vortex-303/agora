@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import nodeDatachannel from 'node-datachannel';
 
 const { PeerConnection } = nodeDatachannel;
@@ -228,8 +229,9 @@ class TrackerSwarm {
   }
 }
 
-export class SwarmNode {
+export class SwarmNode extends EventEmitter {
   constructor(store) {
+    super();
     this.store = store;
     this.peerId = randomBinaryId();
     this.swarms = new Map();
@@ -251,6 +253,7 @@ export class SwarmNode {
   handlePeer(peerId, dc) {
     if (this.peers.has(peerId)) return;
     this.peers.set(peerId, dc);
+    this.emit('peer', { peerId, at: Date.now() });
 
     dc.onMessage((data) => {
       try {
@@ -320,8 +323,17 @@ export class SwarmNode {
   handleRequest(peerId, author, afterSeq) {
     const objects = this.store.getByAuthor(author, afterSeq);
     if (objects.length > 0) {
+      const payload = JSON.stringify({ type: 'response', objects });
       this.sendToPeer(peerId, { type: 'response', objects });
       this.served += objects.length;
+      this.emit('served', {
+        peerId,
+        author,
+        count: objects.length,
+        bytes: Buffer.byteLength(payload, 'utf8'),
+        ids: objects.map(o => o.id),
+        at: Date.now(),
+      });
     }
   }
 
