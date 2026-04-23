@@ -131,6 +131,7 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
 .seed-copy ul { list-style: none; padding: 0; margin: 0 0 24px; }
 .seed-copy li { font-size: 0.9rem; color: var(--text-secondary); padding: 6px 0 6px 22px; position: relative; }
 .seed-copy li::before { content: '◆'; position: absolute; left: 0; color: var(--accent); font-size: 0.7rem; top: 10px; }
+.seed-cmd-label { font-size: 0.75rem; color: var(--text-tertiary); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
 .seed-cmd { display: flex; align-items: stretch; background: var(--bg-surface); border: 1px solid rgba(249,115,22,0.2); border-radius: 10px; overflow: hidden; font-family: var(--font-mono); margin-bottom: 12px; }
 .seed-cmd code { flex: 1; padding: 14px 18px; font-size: 0.9rem; color: var(--text-primary); white-space: nowrap; overflow-x: auto; }
 .seed-cmd code .dim { color: var(--text-tertiary); }
@@ -296,12 +297,19 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
 
     <div class="seed-intro">
       <div class="seed-copy reveal">
+        <div class="seed-cmd-label">You have Node ≥ 20</div>
         <div class="seed-cmd">
           <code><span class="kw">npx</span> <span class="dim">-y</span> @riotp2p/seed <span class="dim">--seed-all --tui</span></code>
           <button class="seed-copy-btn" data-copy="npx -y @riotp2p/seed --seed-all --tui">copy</button>
         </div>
-        <div class="seed-note">requires Node ≥ 20 · macOS / Linux / WSL · ctrl+c to stop</div>
-        <ul style="margin-top:28px">
+
+        <div class="seed-cmd-label" style="margin-top:18px">Fresh Mac / Linux (no Node needed)</div>
+        <div class="seed-cmd">
+          <code><span class="kw">curl</span> <span class="dim">-fsSL</span> riotp2p.com/seed.sh <span class="dim">|</span> <span class="kw">sh</span></code>
+          <button class="seed-copy-btn" data-copy="curl -fsSL https://riotp2p.com/seed.sh | sh">copy</button>
+        </div>
+        <div class="seed-note">macOS arm64/x64 · Linux arm64/x64 · ctrl+c to stop</div>
+        <ul style="margin-top:24px">
           <li>Seeds the global swarm — stores what your XOR neighborhood needs.</li>
           <li>Stores a 2 GB slice by default. <code style="font-family:var(--font-mono);color:var(--accent)">--budget 8192</code> for 8 GB.</li>
           <li>WebRTC + DHT + trackers — no ports to forward on most home networks.</li>
