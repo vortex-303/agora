@@ -1,10 +1,10 @@
 {
-  "name": "@agorap2p/seed",
+  "name": "@riotp2p/seed",
   "version": "0.2.0",
   "description": "P2P network/seeder node for Agora — Ink-based terminal dashboard with live peer, throughput, and neighborhood panels.",
   "type": "module",
   "bin": {
-    "agora-seed": "./src/index.mjs"
+    "agora-seed": "src/index.mjs"
   },
   "scripts": {
     "start": "node src/index.mjs",

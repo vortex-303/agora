@@ -1,13 +1,13 @@
-# @agorap2p/seed
+# @riotp2p/seed
 
-P2P network node for [Agora](https://agorap2p.com) — seeds content, joins swarms, keeps the network alive.
+P2P network node for [Riot](https://riotp2p.com) — seeds content, joins swarms, keeps the network alive.
 
 ## Run
 
 No install:
 
 ```sh
-npx -y @agorap2p/seed --seed-all --tui
+npx -y @riotp2p/seed --seed-all --tui
 ```
 
 Docker:
