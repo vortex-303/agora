@@ -125,11 +125,64 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
 .reveal.visible { opacity: 1; transform: translateY(0); }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+/* Host Your Own (seed) */
+.seed-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+.seed-copy p { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 18px; }
+.seed-copy ul { list-style: none; padding: 0; margin: 0 0 24px; }
+.seed-copy li { font-size: 0.9rem; color: var(--text-secondary); padding: 6px 0 6px 22px; position: relative; }
+.seed-copy li::before { content: '◆'; position: absolute; left: 0; color: var(--accent); font-size: 0.7rem; top: 10px; }
+.seed-cmd { display: flex; align-items: stretch; background: var(--bg-surface); border: 1px solid rgba(249,115,22,0.2); border-radius: 10px; overflow: hidden; font-family: var(--font-mono); margin-bottom: 12px; }
+.seed-cmd code { flex: 1; padding: 14px 18px; font-size: 0.9rem; color: var(--text-primary); white-space: nowrap; overflow-x: auto; }
+.seed-cmd code .dim { color: var(--text-tertiary); }
+.seed-cmd code .kw { color: var(--accent); }
+.seed-cmd .seed-copy-btn { background: transparent; color: var(--text-tertiary); border: none; border-left: 1px solid rgba(255,255,255,0.06); padding: 0 18px; cursor: pointer; font-family: var(--font-mono); font-size: 0.8rem; transition: all 0.2s; white-space: nowrap; }
+.seed-cmd .seed-copy-btn:hover { color: var(--accent); background: rgba(249,115,22,0.05); }
+.seed-cmd .seed-copy-btn.copied { color: #4ade80; }
+.seed-note { font-size: 0.8rem; color: var(--text-tertiary); font-family: var(--font-mono); }
+
+/* Terminal mock */
+.seed-tui { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px var(--accent-glow); font-family: var(--font-mono); }
+.seed-tui-bar { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: var(--bg-raised); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.seed-tui-dot { width: 11px; height: 11px; border-radius: 50%; }
+.seed-tui-dot.r { background: #ff5f56; }
+.seed-tui-dot.y { background: #ffbd2e; }
+.seed-tui-dot.g { background: #27c93f; }
+.seed-tui-bar span { margin-left: 10px; font-size: 0.75rem; color: var(--text-tertiary); }
+.seed-tui-body { padding: 18px; font-size: 0.72rem; line-height: 1.5; color: var(--text-primary); }
+.seed-tui-head { padding: 0 4px 14px; color: var(--text-tertiary); }
+.seed-tui-head .k { color: var(--text-primary); font-weight: 600; }
+.seed-tui-head .a { color: var(--accent); font-weight: 600; }
+.seed-tui-head .y { color: var(--accent); }
+.seed-tui-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-bottom: 10px; }
+.seed-panel { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px 14px; }
+.seed-panel-title { color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+.seed-row { display: flex; justify-content: space-between; padding: 2px 0; }
+.seed-row .l { color: var(--text-tertiary); }
+.seed-row .v { color: var(--text-primary); }
+.seed-row .v.cy { color: #67e8f9; }
+.seed-row .v.gn { color: #4ade80; }
+.seed-row .v.or { color: var(--accent); }
+.seed-spark { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; }
+.seed-spark .l { color: var(--text-tertiary); min-width: 46px; }
+.seed-spark .bars { flex: 1; color: #4ade80; letter-spacing: -1px; }
+.seed-spark .bars.cy { color: #67e8f9; }
+.seed-spark .v { color: #4ade80; font-weight: 600; }
+.seed-spark .v.cy { color: #67e8f9; }
+.seed-bar-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; gap: 12px; }
+.seed-bar-row .who { color: #67e8f9; width: 140px; }
+.seed-bar-row .bar { color: #4ade80; flex: 1; letter-spacing: -1px; }
+.seed-bar-row .count { color: var(--text-tertiary); min-width: 120px; text-align: right; }
+.seed-foot { margin-top: 10px; padding: 0 4px; color: var(--text-tertiary); }
+
 @media (max-width: 768px) {
   .steps { grid-template-columns: 1fr; }
   .features { grid-template-columns: 1fr; }
   .compare { grid-template-columns: 1fr; }
   .encrypt-cards { grid-template-columns: 1fr; }
+  .seed-intro { grid-template-columns: 1fr; gap: 24px; }
+  .seed-tui-body { font-size: 0.62rem; padding: 12px; }
+  .seed-bar-row .who { width: 110px; }
+  .seed-bar-row .count { min-width: 90px; }
   .claim-box { flex-direction: column; }
   .claim-prefix { border-radius: 10px 10px 0 0; border-right: 1px solid rgba(255,255,255,0.06); border-bottom: none; width: 100%; text-align: center; }
   .claim-input { border-radius: 0; width: 100%; text-align: center; }
@@ -229,6 +282,93 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
         <div class="feat-icon">🌐</div>
         <h3>Network Map</h3>
         <p>See who's in the swarm, how many peers, objects cached and served. Track your contribution: users hosted, objects served, uptime. The network is transparent — the messages aren't.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Host Your Own -->
+<section>
+  <div class="container">
+    <div class="eyebrow reveal">Host Your Own Node</div>
+    <h2 class="stitle reveal">One line. <span class="accent">You're a seeder.</span></h2>
+    <p class="ssub reveal">The browser seeds. A dedicated node seeds harder. Run <code style="font-family:var(--font-mono);color:var(--accent)">agora-seed</code> on any Mac, Linux box, or Raspberry Pi and help keep the network alive. No account. No config. No cloud.</p>
+
+    <div class="seed-intro">
+      <div class="seed-copy reveal">
+        <div class="seed-cmd">
+          <code><span class="kw">npx</span> <span class="dim">-y</span> @agorap2p/seed <span class="dim">--seed-all --tui</span></code>
+          <button class="seed-copy-btn" data-copy="npx -y @agorap2p/seed --seed-all --tui">copy</button>
+        </div>
+        <div class="seed-note">requires Node ≥ 20 · macOS / Linux / WSL · ctrl+c to stop</div>
+        <ul style="margin-top:28px">
+          <li>Seeds the global swarm — stores what your XOR neighborhood needs.</li>
+          <li>Stores a 2 GB slice by default. <code style="font-family:var(--font-mono);color:var(--accent)">--budget 8192</code> for 8 GB.</li>
+          <li>WebRTC + DHT + trackers — no ports to forward on most home networks.</li>
+          <li>Your data dir lives at <code style="font-family:var(--font-mono);color:var(--accent)">~/.agora-seed</code>. Delete it to reset.</li>
+        </ul>
+      </div>
+
+      <div class="seed-tui reveal">
+        <div class="seed-tui-bar">
+          <div class="seed-tui-dot r"></div>
+          <div class="seed-tui-dot y"></div>
+          <div class="seed-tui-dot g"></div>
+          <span>agora-seed --seed-all --tui</span>
+        </div>
+        <div class="seed-tui-body">
+          <div class="seed-tui-head">
+            <span class="k">agora</span><span class="a">.seed</span> v0.2.0 &nbsp;·&nbsp; network node &nbsp;·&nbsp; 2h14m uptime &nbsp;·&nbsp; node <span class="y">4a7c1e09</span> &nbsp;·&nbsp; :9876
+          </div>
+
+          <div class="seed-tui-grid">
+            <div class="seed-panel">
+              <div class="seed-panel-title">node</div>
+              <div class="seed-row"><span class="l">mode</span><span class="v or">network node</span></div>
+              <div class="seed-row"><span class="l">data</span><span class="v cy">~/.agora-seed</span></div>
+              <div class="seed-row"><span class="l">tracker</span><span class="v">2 urls</span></div>
+              <div class="seed-row"><span class="l">port</span><span class="v">:9876</span></div>
+            </div>
+            <div class="seed-panel">
+              <div class="seed-panel-title">throughput (60s)</div>
+              <div class="seed-spark"><span class="l">↓ in</span><span class="bars">▁▂▃▅▇▆▄▃▅▇█▇▅▃▂▄▆▇▅▃▂▁▂▄▆▇▅▃▂▁▂▄▆▇▅▃▂▁▂▃</span><span class="v">18.4KB/s</span></div>
+              <div class="seed-spark"><span class="l">↑ out</span><span class="bars">▁▁▂▄▆▇▆▄▂▁▂▄▆▇▅▃▂▄▆█▇▅▃▁▂▄▆▇▅▃▂▁▂▄▅▇▆▄▂▁</span><span class="v">22.7KB/s</span></div>
+              <div class="seed-spark"><span class="l">∙ serve</span><span class="bars cy">▁▁▂▃▄▃▂▁▂▃▅▆▄▂▁▂▄▅▃▂▁▂▃▅▄▂▁▂▄▃▂▁▁▂▃▄▂▁▁▁</span><span class="v cy">2.3/s</span></div>
+            </div>
+          </div>
+
+          <div class="seed-tui-grid">
+            <div class="seed-panel">
+              <div class="seed-panel-title">network</div>
+              <div class="seed-row"><span class="l">peers</span><span class="v or">34</span></div>
+              <div class="seed-row"><span class="l">swarms</span><span class="v or">128</span></div>
+              <div class="seed-row"><span class="l">objects</span><span class="v cy">12.4k</span></div>
+              <div class="seed-row"><span class="l">authors</span><span class="v cy">1.2k</span></div>
+              <div class="seed-row"><span class="l">served</span><span class="v gn">48.7k</span></div>
+              <div class="seed-row"><span class="l">received</span><span class="v gn">14.2k</span></div>
+            </div>
+            <div class="seed-panel">
+              <div class="seed-panel-title">neighborhood</div>
+              <div class="seed-row"><span class="l">prefix</span><span class="v or">4a7c</span></div>
+              <div class="seed-row"><span class="l">in nbhd</span><span class="v cy">864</span></div>
+              <div class="seed-row"><span class="l">outside</span><span class="v">11.5k</span></div>
+              <div class="seed-row"><span class="l">disk</span><span class="v cy">312MB / 2048MB</span></div>
+              <div class="seed-row"><span class="l">DHT</span><span class="v or">87 nodes</span></div>
+            </div>
+          </div>
+
+          <div class="seed-panel">
+            <div class="seed-panel-title">top authors served (top 6)</div>
+            <div class="seed-bar-row"><span class="who">pk_lobby_ada39f…</span><span class="bar">████████████████████████████</span><span class="count">4.2k obj · 3.1MB</span></div>
+            <div class="seed-bar-row"><span class="who">pk_lobby_7b1c82…</span><span class="bar">█████████████████</span><span class="count">2.7k obj · 1.8MB</span></div>
+            <div class="seed-bar-row"><span class="who">pk_lobby_c9e4d0…</span><span class="bar">██████████</span><span class="count">1.4k obj · 980KB</span></div>
+            <div class="seed-bar-row"><span class="who">pk_lobby_1f8a6b…</span><span class="bar">██████</span><span class="count">812 obj · 620KB</span></div>
+            <div class="seed-bar-row"><span class="who">pk_lobby_3d2e9c…</span><span class="bar">███</span><span class="count">418 obj · 301KB</span></div>
+            <div class="seed-bar-row"><span class="who">pk_lobby_8e5b14…</span><span class="bar">█</span><span class="count">142 obj · 94KB</span></div>
+          </div>
+
+          <div class="seed-foot">dashboard http://localhost:9876 &nbsp;·&nbsp; ctrl+c to stop</div>
+        </div>
       </div>
     </div>
   </div>
@@ -348,6 +488,32 @@ footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 32px 0; text-ali
     entries.forEach(function(e) { if (e.isIntersecting) { e.target.classList.add('visible'); } });
   }, { threshold: 0.1 });
   els.forEach(function(el) { observer.observe(el); });
+})();
+
+// Copy-to-clipboard for seed command
+(function() {
+  document.querySelectorAll('.seed-copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var text = btn.getAttribute('data-copy');
+      if (!text) return;
+      var done = function() {
+        var orig = btn.textContent;
+        btn.textContent = 'copied';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = orig === 'copied' ? 'copy' : orig; btn.classList.remove('copied'); }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function() { fallback(text, done); });
+      } else { fallback(text, done); }
+    });
+  });
+  function fallback(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (_) {}
+    document.body.removeChild(ta);
+  }
 })();
 
 // Grid canvas

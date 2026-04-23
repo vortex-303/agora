@@ -4,7 +4,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { SwarmNode } from './swarm-node.mjs';
+import { SwarmNode, TRACKERS } from './swarm-node.mjs';
 import { ObjectStore } from './store.mjs';
 import { startDashboard } from './dashboard.mjs';
 import { DHTPublisher } from './dht-publisher.mjs';
@@ -149,6 +149,7 @@ if (tuiMode) {
   tui = startTUI({
     store, node, dhtPublisher, startTime, port, dataDir, budgetMB,
     mode: seedAll ? 'network node' : 'personal',
+    trackers: TRACKERS,
   });
 } else {
   setInterval(() => {

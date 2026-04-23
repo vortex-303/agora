@@ -1,7 +1,7 @@
 {
   "name": "@agorap2p/seed",
-  "version": "0.1.0",
-  "description": "P2P network/seeder node for Agora — terminal dashboard for peers, files served, and new accounts.",
+  "version": "0.2.0",
+  "description": "P2P network/seeder node for Agora — Ink-based terminal dashboard with live peer, throughput, and neighborhood panels.",
   "type": "module",
   "bin": {
     "agora-seed": "./src/index.mjs"
@@ -39,6 +39,12 @@
     "@noble/curves": "^1.8.0",
     "@noble/hashes": "^1.7.0",
     "bittorrent-dht": "^11.0.11",
-    "node-datachannel": "^0.32.0"
+    "htm": "^3.1.1",
+    "ink": "^7.0.1",
+    "node-datachannel": "^0.32.0",
+    "react": "^19.2.5"
+  },
+  "devDependencies": {
+    "ink-testing-library": "^4.0.0"
   }
 }

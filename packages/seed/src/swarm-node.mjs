@@ -4,7 +4,7 @@ import nodeDatachannel from 'node-datachannel';
 
 const { PeerConnection } = nodeDatachannel;
 
-const TRACKERS = ['wss://tracker.openwebtorrent.com'];
+export const TRACKERS = ['wss://tracker.openwebtorrent.com'];
 const ANNOUNCE_INTERVAL = 30_000;
 const OFFERS_PER_ANNOUNCE = 3;
 
@@ -263,7 +263,9 @@ export class SwarmNode extends EventEmitter {
     });
 
     dc.onClosed(() => {
-      this.peers.delete(peerId);
+      if (this.peers.delete(peerId)) {
+        this.emit('peer-drop', { peerId, at: Date.now() });
+      }
     });
 
     // Send watermarks to new peer
